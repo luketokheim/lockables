@@ -1,32 +1,21 @@
-# Prerequisites
-*.d
+# Visual Studio
+.vs/
+.vscode/
+out/
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# CLion
+.idea/
 
-# Precompiled Headers
-*.gch
-*.pch
+# The paths for CI and command line cmake
+build/
+cmake-build-*/
+conan/
+prefix/
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
+# Oopsie macOS
+**/.DS_Store
 
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
+# Do not check in
+CMakeLists.txt.user
+CMakeSettings.json
+CMakeUserPresets.json
