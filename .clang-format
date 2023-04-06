@@ -4,7 +4,7 @@ BasedOnStyle: Google
 DerivePointerAlignment: false
 PointerAlignment: Left
 
-# Sort individual blocks of includes with empty line inbetween blocks.
+# Sort individual blocks of includes with empty line in between blocks.
 IncludeBlocks: Preserve
 IncludeCategories:
   # Public project include files
