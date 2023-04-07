@@ -1,5 +1,6 @@
 #pragma once
 
+#include <concepts>
 #include <functional>
 #include <mutex>
 #include <shared_mutex>
@@ -8,55 +9,103 @@
 
 namespace lockables {
 
-/**
-  lockables::Value<int> value;
+namespace concepts {
 
+/**
+  Not a reference or a pointer. Concept for return values from function object
+  F in the Value interface. Make it harder to users to capture an unsafe
+  reference from Value::with_shared and Value::with_exclusive.
+*/
+template <typename T>
+concept NotRef = (!std::is_reference_v<T> && !std::is_pointer_v<T> &&
+                  std::is_same_v<std::decay_t<T>, T>);
+
+/** Function object concept for Value::with_shared. */
+template <typename F, typename T>
+concept ConstCallable = std::is_invocable_v<F, const T&> &&
+                        NotRef<std::invoke_result_t<F, const T&>>;
+
+/** Function object concept for Value::with_exclusive. */
+template <typename F, typename T>
+concept Callable =
+    std::is_invocable_v<F, T&> && NotRef<std::invoke_result_t<F, T&>>;
+
+}  // namespace concepts
+
+/*
+  Class template that stores a value alongside the mutex to protect it. Allow
+  multiple reader threads or one writer thread access to the lockable object at
+  a time.
+
+  The user supplies a function object for shared or exclusive access. The
+  function is called with a reference to the lockable object that is safe to use
+  until the function returns.
+
+  The user function object may return any type except a pointer or reference.
+
+  Usage:
+
+  lockables::Value<int> value{10};
+
+  // Reader with shared lock.
+  int copy = value.with_shared([](const int& x) {
+    return x;
+  });
+
+  // Writer with exclusive lock.
   value.with_exclusive([](int& x) {
     x = 10;
   });
-
-  const int y = value.with_shared([](int x) {
-    return x;
-  });
-*/
-template <typename T, typename Mutex = std::mutex>
+ */
+template <typename T, typename Mutex = std::shared_mutex>
 class Value {
  public:
+  /*
+    Construct a lockable object of type T. All arguments in the parameter pack
+    Args are forwarded to the constructor of T.
+   */
+  template <typename... Args>
+  Value(Args&&...);
+
+  /*
+    Reader thread access. Acquires a shared lock. Calls function object F with a
+    const reference to the lockable object. Returns the result from the function
+    object F.
+
+    The user may safely access the lockable object for the duration of their
+    function F. The user must not keep a reference or pointer to the lockable
+    object after returning from their function F.
+
+    Usage:
+
+    Value<int> value{101};
+    const int copy = value.with_shared([](const int& x) {
+      return x;
+    });
+  */
   template <typename F>
-  auto with_shared(F&& f) const -> std::invoke_result_t<F, const T&> {
-    using result = std::invoke_result_t<F, T&>;
+    requires concepts::ConstCallable<F, T>
+  std::invoke_result_t<F, const T&> with_shared(F&& f) const;
 
-    static_assert(!std::is_reference_v<result>,
-                  "function object must not return reference");
+  /*
+    Writer thread access. Acquires an exclusive lock. Calls functio object F
+    with a reference to the lockable object. Returns the result from the
+    function object F.
 
-    static_assert(!std::is_pointer_v<result>,
-                  "function object must not return pointer");
+    The user may safely access the lockable object for the duration of their
+    function F. The user must not keep a reference or pointer to the lockable
+    object after returning from their function F.
 
-    static_assert(std::is_invocable_r_v<void, F, const T&> ||
-                      std::is_invocable_r_v<std::decay_t<result>, F, const T&>,
-                  "function object must return void or non const rvalue");
+    Usage:
 
-    shared_lock lock{mutex_};
-    return std::invoke(std::forward<F>(f), std::forward<const T&>(value_));
-  }
-
+    Value<int> value;
+    value.with_exclusive([](int& x) {
+      x = 102;
+    });
+  */
   template <typename F>
-  auto with_exclusive(F&& f) -> std::invoke_result_t<F, T&> {
-    using result = std::invoke_result_t<F, T&>;
-
-    static_assert(!std::is_reference_v<result>,
-                  "function object must not return reference");
-
-    static_assert(!std::is_pointer_v<result>,
-                  "function object must not return pointer");
-
-    static_assert(std::is_invocable_r_v<void, F, T&> ||
-                      std::is_invocable_r_v<std::decay_t<result>, F, T&>,
-                  "function object must return void or non const rvalue");
-
-    exclusive_lock lock{mutex_};
-    return std::invoke(std::forward<F>(f), std::forward<T&>(value_));
-  }
+    requires concepts::Callable<F, T>
+  std::invoke_result_t<F, T&> with_exclusive(F&& f);
 
  private:
   // Use std::shared_lock for std::shared_mutex but std::scoped_lock for
@@ -74,5 +123,26 @@ class Value {
   T value_{};
   mutable Mutex mutex_{};
 };
+
+template <typename T, typename Mutex>
+template <typename... Args>
+Value<T, Mutex>::Value(Args&&... args)
+    : value_{std::forward<Args>(args)...}, mutex_{} {}
+
+template <typename T, typename Mutex>
+template <typename F>
+  requires concepts::ConstCallable<F, T>
+std::invoke_result_t<F, const T&> Value<T, Mutex>::with_shared(F&& f) const {
+  shared_lock lock{mutex_};
+  return std::invoke(std::forward<F>(f), std::forward<const T&>(value_));
+}
+
+template <typename T, typename Mutex>
+template <typename F>
+  requires concepts::Callable<F, T>
+std::invoke_result_t<F, T&> Value<T, Mutex>::with_exclusive(F&& f) {
+  exclusive_lock lock{mutex_};
+  return std::invoke(std::forward<F>(f), std::forward<T&>(value_));
+}
 
 }  // namespace lockables

@@ -15,7 +15,7 @@ find_package(benchmark REQUIRED)
 
 # ---- Benchmarks ----
 
-add_executable(lockables-bench bench.cpp)
+add_executable(lockables-bench bench.cpp bench_value.cpp)
 target_link_libraries(
     lockables-bench PRIVATE
     lockables::lockables

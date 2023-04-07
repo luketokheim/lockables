@@ -14,8 +14,7 @@ TEMPLATE_TEST_CASE("lambda", "[lockables][Value]", std::mutex,
 
   constexpr T kExpected{10};
 
-  lockables::Value<T, Mutex> value;
-  value.with_exclusive([](T& x) { x = kExpected; });
+  lockables::Value<T, Mutex> value{kExpected};
 
   value.with_shared([](const T& x) { REQUIRE(x == kExpected); });
   value.with_shared([](T x) { REQUIRE(x == kExpected); });
