@@ -1,4 +1,39 @@
-#pragma once
+/**
+  Guarded<T> is a class template that stores a mutex together with the value it
+  guards.
+
+  Guarded {
+    T value
+    std::mutex mutex
+  }
+
+  Users read or write the guarded value using the pointer like GuardedScope<T>
+  object.
+
+  GuardedScope {
+    T* non_owning
+    std::scoped_lock lock
+  }
+
+  Usage:
+
+  Guarded<int> value{9};
+  if (auto guard = value.with_exclusive()) {
+    // Writer access. The mutex is locked until guard goes out of scope.
+    *guard += 10;
+  }
+
+  int copy = 0;
+  if (auto guard = value.with_shared()) {
+    // Reader access.
+    copy = *guard;
+    // *guard += 10;  // will not compile!
+  }
+
+  assert(copy == 19);
+*/
+#ifndef LOCKABLES_GUARDED_H_
+#define LOCKABLES_GUARDED_H_
 
 #include <mutex>
 #include <shared_mutex>
@@ -7,32 +42,40 @@
 
 namespace lockables {
 
-namespace detail {
+/**
+  Forward declare the return type of Guarded<T> public methods. A pointer like
+  object.
 
+  Contains a non-owning pointer to a value of type T and a lock on the mutex
+  that protects that value.
+
+  GuardedScope {
+    T* ptr
+    std::scoped_lock<Mutex> lock
+  }
+*/
 template <typename T, typename Mutex>
-class Scope;
-
-}  // namespace detail
+class GuardedScope;
 
 /**
-  Class template that stores a value alongside the mutex to protect it. Allow
-  multiple reader threads or one writer thread access to the lockable object at
-  a time.
+  Guarded<T> is a class template that stores a mutex together with the value it
+  guards. Allow multiple reader threads or one writer thread access to the
+  guarded value at a time.
 
-  Methods return a pointer like object that also holds the lock. When the object
-  goes out of scope the lock is released.
+  Methods return the GuardedScope<T> pointer like object that also holds the
+  lock. When the object goes out of scope the lock is released.
 
-  The user must not keep a pointer or reference to the lockable object after
-  the unique_ptr goes out of scope.
+  The user must not keep a pointer or reference to the guarded value after the
+  GuardedScope<T> goes out of scope.
 
   Usage:
 
   // Parameters are forwarded to the std::vector constructor.
-  lockables::Guarded<std::vector<int>> value{1, 2, 3, 4, 5};
+  Guarded<std::vector<int>> value{1, 2, 3, 4, 5};
 
   // Reader with shared lock.
   if (const auto guard = value.with_shared()) {
-    // Guard is a std::unique_ptr<std::vector<int>>
+    // Deference pointer like object GuardedScope<std::vector<int>>
     if (!guard->empty()) {
       int copy = guard->back();
     }
@@ -55,14 +98,14 @@ class Scope;
   CP.50: Define a mutex together with the data it guards. Use
   synchronized_value<T> where possible
 */
-template <typename T, typename Mutex = std::shared_mutex>
+template <typename T, typename Mutex = std::mutex>
 class Guarded {
  public:
-  using shared_scope = detail::Scope<const T, Mutex>;
-  using exclusive_scope = detail::Scope<T, Mutex>;
+  using shared_scope = GuardedScope<const T, Mutex>;
+  using exclusive_scope = GuardedScope<T, Mutex>;
 
   /**
-    Construct a lockable object of type T. All arguments in the parameter pack
+    Construct a guarded value of type T. All arguments in the parameter pack
     Args are forwarded to the constructor of T.
    */
   template <typename... Args>
@@ -70,7 +113,7 @@ class Guarded {
 
   /**
     Reader thread access. Acquires a shared lock. Return a pointer like object
-    to the lockable object.
+    to the guarded value.
 
     The user holds the shared lock to until the returned pointer goes out of
     scope.
@@ -93,7 +136,7 @@ class Guarded {
 
   /**
     Writer thread access. Acquires an exclusive lock. Return a pointer like
-    object to the lockable object.
+    object to the guarded value.
 
     The user holds the exclusive lock to until the returned pointer goes out of
     scope.
@@ -132,42 +175,22 @@ auto Guarded<T, Mutex>::with_exclusive() -> exclusive_scope {
   return exclusive_scope{&value_, mutex_};
 }
 
-namespace detail {
-
-/*
-  A pointer like object that owns a lock and has a non-owning pointer the
-  lockable object of type T in Guarded<T>.
+/**
+  A pointer like object that owns a lock and has a non-owning pointer to the
+  guarded value of type T in Guarded<T>.
 */
 template <typename T, typename Mutex>
-class Scope {
+class GuardedScope {
  public:
+  // Model a restricted std::unique_ptr interface.
   using pointer = T*;
   using element_type = T;
 
-  // RAII to support std::scoped_lock.
-  Scope(pointer ptr, Mutex& mutex) : ptr_{ptr}, lock_{mutex} {}
-
-  ~Scope() = default;
-  Scope(const Scope& other) = delete;
-  Scope(Scope&& other) noexcept = delete;
-  Scope& operator=(const Scope& other) = delete;
-  Scope& operator=(Scope&& other) noexcept = delete;
-
-  explicit operator bool() const noexcept { return ptr_ != nullptr; }
-
-  typename std::add_lvalue_reference_t<T> operator*() const
-      noexcept(noexcept(*std::declval<pointer>())) {
-    return *ptr_;
-  }
-
-  pointer operator->() const noexcept { return ptr_; }
-
- private:
-  // Use these std lock types internally for shared access from reader threads.
-  // - std::shared_lock<std::shared_mutex> lock(...);
+  // Use these std lock types internally for shared access from readers.
   // - std::scoped_lock<std::mutex> lock(...);
+  // - std::shared_lock<std::shared_mutex> lock(...);
   //
-  // Always use std::scoped_lock<Mutex> for writer threads.
+  // Always use std::scoped_lock<Mutex> for writers.
   //
   // This means that if the user chooses std::mutex the shared and exclusive
   // locks are the same type.
@@ -178,10 +201,27 @@ class Scope {
                              std::is_same_v<Mutex, std::shared_mutex>,
                          std::shared_lock<Mutex>, std::scoped_lock<Mutex>>;
 
+  // RAII to support std::scoped_lock.
+  GuardedScope(pointer ptr, Mutex& mutex) : ptr_{ptr}, lock_{mutex} {}
+
+  // Rule of 5. No copy or move.
+  GuardedScope(const GuardedScope&) = delete;
+  GuardedScope(GuardedScope&&) noexcept = delete;
+  GuardedScope& operator=(const GuardedScope&) = delete;
+  GuardedScope& operator=(GuardedScope&&) noexcept = delete;
+  ~GuardedScope() = default;
+
+  explicit operator bool() const noexcept { return ptr_ != nullptr; }
+
+  std::add_lvalue_reference_t<T> operator*() const noexcept { return *ptr_; }
+
+  pointer operator->() const noexcept { return ptr_; }
+
+ private:
   pointer ptr_;
   lock_type lock_;
 };
 
-}  // namespace detail
-
 }  // namespace lockables
+
+#endif  // LOCKABLES_GUARDED_H_
