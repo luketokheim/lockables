@@ -29,10 +29,7 @@ target_include_directories(
     "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
 )
 
-target_compile_features(lockables_lockables INTERFACE cxx_std_20)
-
-find_package(fmt REQUIRED)
-target_link_libraries(lockables_lockables INTERFACE fmt::fmt)
+target_compile_features(lockables_lockables INTERFACE cxx_std_17)
 
 # ---- Install rules ----
 

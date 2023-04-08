@@ -19,9 +19,6 @@ class LockablesConan(ConanFile):
     }
     default_options = {"developer_mode": False, "enable_benchmarks": False}
 
-    def requirements(self):
-        self.requires("fmt/9.1.0")
-
     def build_requirements(self):
         if not self.options.developer_mode:
             return

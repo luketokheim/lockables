@@ -43,7 +43,8 @@ the project:
       "binaryDir": "${sourceDir}/build/dev",
       "inherits": ["dev-mode", "conan", "ci-<os>"],
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/Debug/generators/conan_toolchain.cmake"
       }
     }
   ],
@@ -84,7 +85,7 @@ download the dependencies and generate the necessary CMake files by running
 this command in the project root:
 
 ```sh
-conan install . -s build_type=Debug -b missing
+conan install . -b missing -s build_type=Debug -o developer_mode=True
 ```
 
 Note that if your conan profile does not specify the same compiler, standard
