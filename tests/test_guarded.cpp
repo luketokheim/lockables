@@ -202,7 +202,7 @@ TEST_CASE("apply", "[lockables][examples][Guarded]") {
   Guarded<std::vector<int>> v5;
 
   const int sum = lockables::apply(
-      [](int& x, int& y, int& z, std::string& str, std::vector<int>& list) {
+      [](int& x, int& y, int& z, std::string& /*str*/, std::vector<int>& list) {
         x += 10;
         y -= 20;
         z += 30;

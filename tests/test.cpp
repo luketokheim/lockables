@@ -3,6 +3,41 @@
 #include <lockables/guarded.hpp>
 #include <lockables/value.hpp>
 
+TEST_CASE("README") {
+  lockables::Guarded<int> value{100};
+
+  // The guard is a pointer like object that owns a lock on value.
+  if (auto guard = value.with_exclusive()) {
+    // Writer lock until guard goes out of scope.
+    *guard += 10;
+  }
+
+  int copy = 0;
+  if (auto guard = value.with_shared()) {
+    // Reader lock.
+    copy = *guard;
+  }
+
+  assert(copy == 110);
+
+  lockables::Guarded<int> value1{100};
+  lockables::Guarded<std::vector<int>> value2{1, 2, 3, 4, 5};
+
+  const int sum = lockables::apply(
+      [](int& x, std::vector<int>& y) {
+        int sum = 0;
+        for (auto& item : y) {
+          item *= x;
+          sum += item;
+        }
+
+        return sum;
+      },
+      value1, value2);
+
+  assert(sum == 1500);
+}
+
 TEST_CASE("Guarded example", "[lockables][examples][Guarded]") {
   using namespace lockables;
 
@@ -123,7 +158,7 @@ TEST_CASE("Value vector example", "[lockables][examples][Value]") {
   // Reader with shared lock.
   value.with_shared([](const std::vector<int>& x) {
     if (!x.empty()) {
-      int copy = x.back();
+      [[maybe_unused]] int copy = x.back();
     }
   });
 
