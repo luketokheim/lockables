@@ -43,6 +43,17 @@ class Scope;
     guard->push_back(100);
     (*guard).clear();
   }
+
+  References:
+
+  C++ Core Guidelines
+
+  CP.20: Use RAII, never plain lock()/unlock()
+
+  CP.22: Never call unknown code while holding a lock (e.g., a callback)
+
+  CP.50: Define a mutex together with the data it guards. Use
+  synchronized_value<T> where possible
 */
 template <typename T, typename Mutex = std::shared_mutex>
 class Guarded {
