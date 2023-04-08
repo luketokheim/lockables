@@ -42,24 +42,24 @@ struct Fields {
 TEMPLATE_TEST_CASE("read and write struct", "[lockables][Guarded]",
                    (lockables::Guarded<Fields, std::mutex>),
                    (lockables::Guarded<Fields, std::shared_mutex>)) {
-  const Fields kExpected{100, 3140000, "Hello World!"};
+  const Fields expected{100, 3140000, "Hello World!"};
 
-  TestType value{kExpected};
+  TestType value{expected};
 
   if (auto guard = value.with_shared()) {
     const auto copy = *guard;
-    CHECK(copy == kExpected);
+    CHECK(copy == expected);
   }
 
   if (auto guard = value.with_exclusive()) {
-    CHECK(*guard == kExpected);
+    CHECK(*guard == expected);
     (*guard).field1 += 1;
     guard->field2 += 1592;
   }
 
   if (auto guard = value.with_shared()) {
-    CHECK(guard->field1 == kExpected.field1 + 1);
-    CHECK(*guard != kExpected);
+    CHECK(guard->field1 == expected.field1 + 1);
+    CHECK(*guard != expected);
   }
 }
 

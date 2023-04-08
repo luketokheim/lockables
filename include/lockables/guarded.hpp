@@ -109,7 +109,7 @@ class Guarded {
     Args are forwarded to the constructor of T.
    */
   template <typename... Args>
-  Guarded(Args&&...);
+  explicit Guarded(Args&&...);
 
   /**
     Reader thread access. Acquires a shared lock. Return a pointer like object

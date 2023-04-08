@@ -1,6 +1,34 @@
-#pragma once
+/*
+  Value<T> is a class template that stores a mutex together with the value it
+  guards.
 
-#include <concepts>
+  Value {
+    T value
+    std::mutex mutex
+  }
+
+  Users read or write the protected value by supplying a function object. Value
+  acquires a read or write lock and calls the user function.
+
+  Usage:
+
+  Value<int> value{9};
+  value.with_exclusive([](int& x) {
+    // Writer access. The mutex is locked until this function returns.
+    x += 10;
+  });
+
+  const int copy = value.with_shared([](const int& x) {
+    // Reader access.
+    // x += 10;  // will not compile!
+    return x;
+  });
+
+  assert(copy == 19);
+*/
+#ifndef LOCKABLES_VALUE_H_
+#define LOCKABLES_VALUE_H_
+
 #include <functional>
 #include <mutex>
 #include <shared_mutex>
@@ -9,70 +37,51 @@
 
 namespace lockables {
 
-namespace concepts {
-
-/**
-  Not a reference or a pointer. Concept for return values from function object
-  F in the Value interface. Make it harder to users to capture an unsafe
-  reference from Value::with_shared and Value::with_exclusive.
-*/
-template <typename T>
-concept NotRef = (!std::is_reference_v<T> && !std::is_pointer_v<T> &&
-                  std::is_same_v<std::decay_t<T>, T>);
-
-/** Function object concept for Value::with_shared. */
-template <typename F, typename T>
-concept ConstCallable = std::is_invocable_v<F, const T&> &&
-                        NotRef<std::invoke_result_t<F, const T&>>;
-
-/** Function object concept for Value::with_exclusive. */
-template <typename F, typename T>
-concept Callable =
-    std::is_invocable_v<F, T&> && NotRef<std::invoke_result_t<F, T&>>;
-
-}  // namespace concepts
-
 /*
-  Class template that stores a value alongside the mutex to protect it. Allow
-  multiple reader threads or one writer thread access to the lockable object at
-  a time.
+  Value<T> is a class template that stores a mutex together with the value it
+  guards. Allow multiple reader threads or one writer thread access to the
+  lockable value at a time.
 
   The user supplies a function object for shared or exclusive access. The
-  function is called with a reference to the lockable object that is safe to use
-  until the function returns.
-
-  The user function object may return any type except a pointer or reference.
+  function is called with a reference to the lockable value that is safe to use
+  until the user function returns.
 
   Usage:
 
-  lockables::Value<int> value{10};
+  // Parameters are forwarded to the std::vector constructor.
+  Value<std::vector<int>> value{1, 2, 3, 4, 5};
 
   // Reader with shared lock.
-  int copy = value.with_shared([](const int& x) {
-    return x;
+  value.with_shared([](const std::vector<int>& x) {
+    if (!x.empty()) {
+      int copy = x.back();
+    }
   });
 
   // Writer with exclusive lock.
-  value.with_exclusive([](int& x) {
-    x = 10;
+  value.with_exclusive([](std::vector<int>& x) {
+    x.push_back(100);
+    x.clear();
   });
  */
-template <typename T, typename Mutex = std::shared_mutex>
+template <typename T, typename Mutex = std::mutex>
 class Value {
  public:
+  using value_type = T;
+
   /*
-    Construct a lockable object of type T. All arguments in the parameter pack
+    Construct a lockable value of type T. All arguments in the parameter pack
     Args are forwarded to the constructor of T.
    */
   template <typename... Args>
-  Value(Args&&...);
+  explicit Value(Args&&...);
 
   /*
     Reader thread access. Acquires a shared lock. Calls function object F with a
-    const reference to the lockable object. Returns the result from the function
+    const reference to the lockable value. Returns the result from the function
     object F.
 
-    The user may safely access the lockable object for the duration of their
+    The user may safely access the lockable value for the duration of their
     function F. The user must not keep a reference or pointer to the lockable
     object after returning from their function F.
 
@@ -82,17 +91,18 @@ class Value {
     const int copy = value.with_shared([](const int& x) {
       return x;
     });
+
+    assert(copy == 101);
   */
   template <typename F>
-    requires concepts::ConstCallable<F, T>
   std::invoke_result_t<F, const T&> with_shared(F&& f) const;
 
   /*
-    Writer thread access. Acquires an exclusive lock. Calls functio object F
-    with a reference to the lockable object. Returns the result from the
-    function object F.
+    Writer thread access. Acquires an exclusive lock. Calls function object F
+    with a reference to the lockable value. Returns the result from the function
+    object F.
 
-    The user may safely access the lockable object for the duration of their
+    The user may safely access the lockable value for the duration of their
     function F. The user must not keep a reference or pointer to the lockable
     object after returning from their function F.
 
@@ -104,22 +114,9 @@ class Value {
     });
   */
   template <typename F>
-    requires concepts::Callable<F, T>
   std::invoke_result_t<F, T&> with_exclusive(F&& f);
 
  private:
-  // Use std::shared_lock for std::shared_mutex but std::scoped_lock for
-  // everyone else.
-  using shared_lock =
-      std::conditional_t<std::is_same_v<Mutex, std::shared_mutex>,
-                         std::shared_lock<Mutex>, std::scoped_lock<Mutex>>;
-
-  // Use std::unique_lock for std::shared_mutex but std::scoped_lock for
-  // everyone else.
-  using exclusive_lock =
-      std::conditional_t<std::is_same_v<Mutex, std::shared_mutex>,
-                         std::unique_lock<Mutex>, std::scoped_lock<Mutex>>;
-
   T value_{};
   mutable Mutex mutex_{};
 };
@@ -131,18 +128,30 @@ Value<T, Mutex>::Value(Args&&... args)
 
 template <typename T, typename Mutex>
 template <typename F>
-  requires concepts::ConstCallable<F, T>
 std::invoke_result_t<F, const T&> Value<T, Mutex>::with_shared(F&& f) const {
+  static_assert(std::is_invocable_v<F, const T&>,
+                "function object F does meet type requirements");
+
+  // Use std::shared_lock for std::shared_mutex but std::scoped_lock for
+  // everyone else.
+  using shared_lock =
+      std::conditional_t<std::is_same_v<Mutex, std::shared_mutex>,
+                         std::shared_lock<Mutex>, std::scoped_lock<Mutex>>;
+
   shared_lock lock{mutex_};
   return std::invoke(std::forward<F>(f), std::forward<const T&>(value_));
 }
 
 template <typename T, typename Mutex>
 template <typename F>
-  requires concepts::Callable<F, T>
 std::invoke_result_t<F, T&> Value<T, Mutex>::with_exclusive(F&& f) {
-  exclusive_lock lock{mutex_};
+  static_assert(std::is_invocable_v<F, T&>,
+                "function object F does meet type requirements");
+
+  std::scoped_lock<Mutex> lock{mutex_};
   return std::invoke(std::forward<F>(f), std::forward<T&>(value_));
 }
 
 }  // namespace lockables
+
+#endif  // LOCKABLES_VALUE_H_
