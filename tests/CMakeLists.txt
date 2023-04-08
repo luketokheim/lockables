@@ -18,7 +18,7 @@ include(Catch)
 
 # ---- Tests ----
 
-add_executable(lockables-test test_guarded.cpp test.cpp)
+add_executable(lockables-test test.cpp test_guarded.cpp test_value.cpp)
 target_link_libraries(
     lockables-test PRIVATE
     lockables::lockables

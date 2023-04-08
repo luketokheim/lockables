@@ -1,15 +1,17 @@
 #include <catch2/catch_template_test_macros.hpp>
 #include <lockables/guarded.hpp>
 
+#include <future>
 #include <string>
+#include <thread>
 #include <vector>
 
 TEMPLATE_PRODUCT_TEST_CASE("read and write PODs", "[lockables][Guarded]",
                            (lockables::Guarded),
                            ((int, std::mutex), (int, std::shared_mutex),
-                            (double, std::mutex),
-                            (double, std::shared_mutex))) {
-  constexpr typename TestType::shared_scope::element_type kExpected = 100;
+                            (std::size_t, std::mutex),
+                            (std::size_t, std::shared_mutex))) {
+  constexpr typename TestType::shared_scope::element_type kExpected{100};
 
   TestType value{kExpected};
 
@@ -31,7 +33,7 @@ TEMPLATE_PRODUCT_TEST_CASE("read and write PODs", "[lockables][Guarded]",
 
 struct Fields {
   int field1{};
-  float field2{};
+  int64_t field2{};
   std::string field3{};
 
   bool operator==(const Fields&) const = default;
@@ -40,7 +42,7 @@ struct Fields {
 TEMPLATE_TEST_CASE("read and write struct", "[lockables][Guarded]",
                    (lockables::Guarded<Fields, std::mutex>),
                    (lockables::Guarded<Fields, std::shared_mutex>)) {
-  const Fields kExpected{100, 3.14f, "Hello World!"};
+  const Fields kExpected{100, 3140000, "Hello World!"};
 
   TestType value{kExpected};
 
@@ -52,7 +54,7 @@ TEMPLATE_TEST_CASE("read and write struct", "[lockables][Guarded]",
   if (auto guard = value.with_exclusive()) {
     CHECK(*guard == kExpected);
     (*guard).field1 += 1;
-    guard->field2 += 0.00159f;
+    guard->field2 += 1592;
   }
 
   if (auto guard = value.with_shared()) {
@@ -78,51 +80,114 @@ TEMPLATE_TEST_CASE("read and write container", "[lockables][Guarded]",
   }
 }
 
-TEST_CASE("examples", "[lockables][Guarded]") {
-  // Parameters are forwarded to the std::vector constructor.
-  lockables::Guarded<std::vector<int>> value{1, 2, 3, 4, 5};
+TEMPLATE_TEST_CASE("M reader threads, N writer threads", "[lockables][Guarded]",
+                   (lockables::Guarded<int, std::mutex>),
+                   (lockables::Guarded<int, std::shared_mutex>)) {
+  constexpr auto kTarget = 1000;
+  const std::size_t kNumThread =
+      std::min(std::thread::hardware_concurrency(), 8u);
 
-  // Reader with shared lock.
-  if (const auto guard = value.with_shared()) {
-    // Guard is a std::unique_ptr<std::vector<int>>
-    if (!guard->empty()) {
-      int copy = guard->back();
+  TestType value;
+
+  const auto writer_func = [&value]() -> std::size_t {
+    for (auto i = 1; i <= kTarget; ++i) {
+      if (auto guard = value.with_exclusive()) {
+        *guard = i;
+      } else {
+        CHECK(false);
+      }
     }
-  }
 
-  // Writer with exclusive lock.
-  if (auto guard = value.with_exclusive()) {
-    guard->push_back(100);
-    (*guard).clear();
+    return 0;
+  };
+
+  const auto reader_func = [&value]() -> std::size_t {
+    for (std::size_t i = 1; i < std::numeric_limits<std::size_t>::max(); ++i) {
+      if (auto guard = value.with_shared()) {
+        if (*guard >= kTarget) {
+          return i;
+        }
+      } else {
+        CHECK(false);
+      }
+    }
+
+    CHECK(false);
+    return 0;
+  };
+
+  // Test all combinations of M reader + N writer
+  for (int num_writer = 1; num_writer < static_cast<int>(kNumThread);
+       ++num_writer) {
+    std::vector<std::future<std::size_t>> fut_list(kNumThread);
+
+    auto mid = std::next(fut_list.begin(), num_writer);
+
+    std::generate(fut_list.begin(), mid, [writer_func]() {
+      return std::async(std::launch::async, writer_func);
+    });
+
+    std::generate(mid, fut_list.end(), [reader_func]() {
+      return std::async(std::launch::async, reader_func);
+    });
+
+    for (auto& fut : fut_list) {
+      fut.wait();
+    }
+
+    for (auto& fut : fut_list) {
+      [[maybe_unused]] const auto count = fut.get();
+    }
   }
 }
 
-TEST_CASE("with_shared examples", "[lockables][Guarded]") {
-  using namespace lockables;
+TEMPLATE_TEST_CASE("operators", "[lockables][GuardedScope]",
+                   (lockables::GuardedScope<int, std::mutex>),
+                   (lockables::GuardedScope<const int, std::mutex>),
+                   (lockables::GuardedScope<int, std::shared_mutex>),
+                   (lockables::GuardedScope<const int, std::shared_mutex>)) {
+  using Scope = TestType;
+  using T = typename TestType::element_type;
+  using Mutex = typename TestType::lock_type::mutex_type;
 
-  Guarded<int> value;
-  if (const auto guard = value.with_shared()) {
-    const int copy = *guard;
+  T value = 10;
+  Mutex m;
+
+  {
+    Scope scope{&value, m};
+    CHECK(scope);
+    if (!scope) {
+      CHECK(false);
+    }
+    CHECK(&(*scope) == &value);
+    CHECK(*scope == value);
   }
 
-  Guarded<std::vector<int>> list;
-  if (const auto guard = list.with_shared()) {
-    if (!guard->empty()) {
-      const int copy = guard->back();
+  {
+    const Scope scope{&value, m};
+    CHECK(scope);
+    if (!scope) {
+      CHECK(false);
+    }
+    CHECK(&(*scope) == &value);
+    CHECK(*scope == value);
+  }
+
+  {
+    Scope scope{nullptr, m};
+    CHECK(!scope);
+    if (scope) {
+      CHECK(false);
     }
   }
-}
 
-TEST_CASE("with_exclusive examples", "[lockables][Guarded]") {
-  using namespace lockables;
-
-  Guarded<int> value;
-  if (auto guard = value.with_exclusive()) {
-    *guard = 10;
+  if (auto scope = Scope{&value, m}) {
+    CHECK(&(*scope) == &value);
+    CHECK(*scope == value);
   }
 
-  Guarded<std::vector<int>> list;
-  if (auto guard = list.with_exclusive()) {
-    guard->push_back(100);
+  if (const auto scope = Scope{&value, m}) {
+    CHECK(&(*scope) == &value);
+    CHECK(*scope == value);
   }
 }
