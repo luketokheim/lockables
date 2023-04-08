@@ -7,8 +7,12 @@
 
 namespace lockables {
 
+namespace detail {
+
 template <typename T, typename Mutex>
 class Scope;
+
+}  // namespace detail
 
 /**
   Class template that stores a value alongside the mutex to protect it. Allow
@@ -43,8 +47,8 @@ class Scope;
 template <typename T, typename Mutex = std::shared_mutex>
 class Guarded {
  public:
-  using shared_scope = Scope<const T, Mutex>;
-  using exclusive_scope = Scope<T, Mutex>;
+  using shared_scope = detail::Scope<const T, Mutex>;
+  using exclusive_scope = detail::Scope<T, Mutex>;
 
   /**
     Construct a lockable object of type T. All arguments in the parameter pack
@@ -117,13 +121,20 @@ auto Guarded<T, Mutex>::with_exclusive() -> exclusive_scope {
   return exclusive_scope{&value_, mutex_};
 }
 
+namespace detail {
+
+/*
+  A pointer like object that owns a lock and has a non-owning pointer the
+  lockable object of type T in Guarded<T>.
+*/
 template <typename T, typename Mutex>
 class Scope {
  public:
   using pointer = T*;
   using element_type = T;
 
-  Scope(T* ptr, Mutex& mutex) : ptr_{ptr}, lock_{mutex} {}
+  // RAII to support std::scoped_lock.
+  Scope(pointer ptr, Mutex& mutex) : ptr_{ptr}, lock_{mutex} {}
 
   ~Scope() = default;
   Scope(const Scope& other) = delete;
@@ -144,7 +155,7 @@ class Scope {
   // Use these std lock types internally for shared access from reader threads.
   // - std::shared_lock<std::shared_mutex> lock(...);
   // - std::scoped_lock<std::mutex> lock(...);
-  // 
+  //
   // Always use std::scoped_lock<Mutex> for writer threads.
   //
   // This means that if the user chooses std::mutex the shared and exclusive
@@ -159,5 +170,7 @@ class Scope {
   pointer ptr_;
   lock_type lock_;
 };
+
+}  // namespace detail
 
 }  // namespace lockables
