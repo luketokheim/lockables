@@ -78,23 +78,9 @@ TEMPLATE_TEST_CASE("read and write container", "[lockables][Guarded]",
   }
 }
 
-TEST_CASE("no no no no", "[lockables][Guarded]") {
-  lockables::Guarded<int> value;
-
-  {
-    auto guard = value.with_exclusive();
-
-    int* unsafe_ptr = guard.get();
-
-    int* really_unsafe_ptr = guard.release();
-  }
-
-  auto guard2 = value.with_exclusive();
-}
-
 TEST_CASE("examples", "[lockables][Guarded]") {
   // Parameters are forwarded to the std::vector constructor.
-  lockables::Guarded<std::vector<int>> value{100, 1};
+  lockables::Guarded<std::vector<int>> value{1, 2, 3, 4, 5};
 
   // Reader with shared lock.
   if (const auto guard = value.with_shared()) {
