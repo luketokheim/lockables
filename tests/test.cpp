@@ -73,6 +73,29 @@ TEST_CASE("Guarded::with_exclusive example", "[lockables][examples][Guarded]") {
   }
 }
 
+TEST_CASE("Guarded apply single example",
+          "[lockables][examples][Guarded][apply]") {
+  using namespace lockables;
+
+  Guarded<int> value;
+  lockables::apply([](int& x) { x += 10; }, value);
+}
+
+TEST_CASE("Guarded apply multiple example",
+          "[lockables][examples][Guarded][apply]") {
+  using namespace lockables;
+
+  Guarded<int> value1{1};
+  Guarded<int> value2{2};
+
+  lockables::apply(
+      [](int& x, int& y) {
+        x += y;
+        y /= 2;
+      },
+      value1, value2);
+}
+
 TEST_CASE("Value example", "[lockables][examples][Value]") {
   using namespace lockables;
 

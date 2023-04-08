@@ -90,13 +90,13 @@ class GuardedScope;
   References:
 
   C++ Core Guidelines
-
   CP.20: Use RAII, never plain lock()/unlock()
-
   CP.22: Never call unknown code while holding a lock (e.g., a callback)
-
   CP.50: Define a mutex together with the data it guards. Use
   synchronized_value<T> where possible
+
+  N4033: synchronized_value<T> for associating a mutex with a value
+  https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4033.html
 */
 template <typename T, typename Mutex = std::mutex>
 class Guarded {
@@ -158,6 +158,10 @@ class Guarded {
  private:
   T value_;
   mutable Mutex mutex_;
+
+  template <typename F, typename... ValueTypes, typename... MutexTypes>
+  friend decltype(std::declval<F>()(std::declval<ValueTypes&>()...)) apply(
+      F&& f, Guarded<ValueTypes, MutexTypes>&... v);
 };
 
 template <typename T, typename Mutex>
@@ -175,9 +179,49 @@ auto Guarded<T, Mutex>::with_exclusive() -> exclusive_scope {
   return exclusive_scope{&value_, mutex_};
 }
 
+/*
+  The apply function provides access to a Guarded<T> object from a user supplied
+  callback.
+
+  Basic usage:
+
+  Guarded<int> value;
+  apply([](int& x) {
+    x += 10;
+  }, value);
+
+  The intent is to support locking of multiple Guarded<T> objects. The apply
+  function relies on std::scoped_lock for deadlock avoidance.
+
+  Usage:
+
+  Guarded<int> value1{1};
+  Guarded<int> value2{2};
+
+  apply([](int& x, int& y) {
+    x += y;
+    y /= 2;
+  }, value1, value2);
+
+  References:
+
+  N4033: synchronized_value<T> for associating a mutex with a value
+  https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4033.html
+
+  P0290R2: apply() for synchronized_value<T>
+  https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0290r2.html
+*/
+template <typename F, typename... ValueTypes, typename... MutexTypes>
+decltype(std::declval<F>()(std::declval<ValueTypes&>()...)) apply(
+    F&& f, Guarded<ValueTypes, MutexTypes>&... v) {
+  std::scoped_lock<MutexTypes...> lock{std::forward<MutexTypes&>(v.mutex_)...};
+  return std::invoke(std::forward<F>(f),
+                     std::forward<ValueTypes&>(v.value_)...);
+}
+
 /**
-  A pointer like object that owns a lock and has a non-owning pointer to the
-  guarded value of type T in Guarded<T>.
+  GuardedScope<T> is a pointer like object that owns a lock and has a non-owning
+  pointer to the guarded value of type T in Guarded<T>.
 */
 template <typename T, typename Mutex>
 class GuardedScope {

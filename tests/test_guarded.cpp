@@ -191,3 +191,29 @@ TEMPLATE_TEST_CASE("operators", "[lockables][GuardedScope]",
     CHECK(*scope == value);
   }
 }
+
+TEST_CASE("apply", "[lockables][examples][Guarded]") {
+  using namespace lockables;
+
+  Guarded<int> v1{1};
+  Guarded<int> v2{2};
+  Guarded<int> v3{3};
+  Guarded<std::string> v4{"Hello apply"};
+  Guarded<std::vector<int>> v5;
+
+  const int sum = lockables::apply(
+      [](int& x, int& y, int& z, std::string& str, std::vector<int>& list) {
+        x += 10;
+        y -= 20;
+        z += 30;
+
+        list.push_back(x);
+        list.push_back(y);
+        list.push_back(z);
+
+        return x + y + z;
+      },
+      v1, v2, v3, v4, v5);
+
+  CHECK(sum == 26);
+}
