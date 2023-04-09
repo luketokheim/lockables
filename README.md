@@ -1,6 +1,7 @@
 # Lockables
 
-Lockables are C++17 class templates for data synchronization between threads.
+Lockables are class templates for mutex based concurrency in C++17. Synchronize
+data between multiple threads.
 
 ## Quick start
 
@@ -30,7 +31,8 @@ int main()
 }
 ```
 
-Use ``apply`` for multiple ``Guarded<T>`` values with deadlock avoidance.
+Use the ``apply`` function for multiple [``Guarded<T>``](include/lockables/guarded.hpp)
+values with deadlock avoidance.
 
 ```cpp
 #include <lockables/guarded.hpp>
@@ -65,13 +67,19 @@ int main()
     * CP.20: Use RAII, never plain lock()/unlock()
     * CP.22: Never call unknown code while holding a lock (e.g., a callback)
     * CP.50: Define a mutex together with the data it guards. Use
-    * synchronized_value<T> where possible
+      synchronized_value<T> where possible
+
+- [P0290R4](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p0290r4.html):
+    apply() for synchronized_value<T>
 
 - [N4033](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4033.html):
     synchronized_value<T> for associating a mutex with a value
 
-- [P0290R2](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0290r2.html):
-    apply() for synchronized_value<T>
+- [folly::Synchronized](https://github.com/facebook/folly/blob/main/folly/docs/Synchronized.md)
+
+- [CsLibGuarded](https://github.com/copperspice/cs_libguarded)
+
+- [MutexProtected](https://awesomekling.github.io/MutexProtected-A-C++-Pattern-for-Easier-Concurrency/)
 
 ## Package manager
 
