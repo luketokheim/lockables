@@ -50,7 +50,7 @@ namespace lockables {
   that protects that value.
 
   GuardedScope {
-    T* ptr
+    T* non_owning
     std::scoped_lock<Mutex> lock
   }
 */
@@ -160,8 +160,8 @@ class Guarded {
   mutable Mutex mutex_;
 
   template <typename F, typename... ValueTypes, typename... MutexTypes>
-  friend decltype(std::declval<F>()(std::declval<ValueTypes&>()...)) apply(
-      F&& f, Guarded<ValueTypes, MutexTypes>&... v);
+  friend std::invoke_result_t<F, ValueTypes&...> apply(
+      F&& f, Guarded<ValueTypes, MutexTypes>&... values);
 };
 
 template <typename T, typename Mutex>
@@ -205,18 +205,19 @@ auto Guarded<T, Mutex>::with_exclusive() -> exclusive_scope {
 
   References:
 
+  P0290R4: apply() for synchronized_value<T>
+  https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p0290r4.html
+
   N4033: synchronized_value<T> for associating a mutex with a value
   https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4033.html
-
-  P0290R2: apply() for synchronized_value<T>
-  https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0290r2.html
 */
 template <typename F, typename... ValueTypes, typename... MutexTypes>
-decltype(std::declval<F>()(std::declval<ValueTypes&>()...)) apply(
-    F&& f, Guarded<ValueTypes, MutexTypes>&... v) {
-  std::scoped_lock<MutexTypes...> lock{std::forward<MutexTypes&>(v.mutex_)...};
+std::invoke_result_t<F, ValueTypes&...> apply(
+    F&& f, Guarded<ValueTypes, MutexTypes>&... values) {
+  std::scoped_lock<MutexTypes...> lock{
+      std::forward<MutexTypes&>(values.mutex_)...};
   return std::invoke(std::forward<F>(f),
-                     std::forward<ValueTypes&>(v.value_)...);
+                     std::forward<ValueTypes&>(values.value_)...);
 }
 
 /**
@@ -246,7 +247,7 @@ class GuardedScope {
                          std::shared_lock<Mutex>, std::scoped_lock<Mutex>>;
 
   // RAII to support std::scoped_lock.
-  GuardedScope(pointer ptr, Mutex& mutex) : ptr_{ptr}, lock_{mutex} {}
+  GuardedScope(pointer ptr, Mutex& mutex) : non_owning_{ptr}, lock_{mutex} {}
 
   // Rule of 5. No copy or move.
   GuardedScope(const GuardedScope&) = delete;
@@ -255,14 +256,16 @@ class GuardedScope {
   GuardedScope& operator=(GuardedScope&&) noexcept = delete;
   ~GuardedScope() = default;
 
-  explicit operator bool() const noexcept { return ptr_ != nullptr; }
+  explicit operator bool() const noexcept { return non_owning_ != nullptr; }
 
-  std::add_lvalue_reference_t<T> operator*() const noexcept { return *ptr_; }
+  std::add_lvalue_reference_t<T> operator*() const noexcept {
+    return *non_owning_;
+  }
 
-  pointer operator->() const noexcept { return ptr_; }
+  pointer operator->() const noexcept { return non_owning_; }
 
  private:
-  pointer ptr_;
+  pointer non_owning_;
   lock_type lock_;
 };
 
