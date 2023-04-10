@@ -3,7 +3,7 @@
 #include <lockables/guarded.hpp>
 #include <lockables/value.hpp>
 
-TEST_CASE("README") {
+TEST_CASE("README", "[lockables][examples]") {
   lockables::Guarded<int> value{100};
 
   // The guard is a pointer like object that owns a lock on value.
