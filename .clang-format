@@ -8,7 +8,7 @@ PointerAlignment: Left
 IncludeBlocks: Preserve
 IncludeCategories:
   # Public project include files
-  - Regex:    '^<lockables/[[:alpha:]_]+\.hpp>'
+  - Regex:    '^<[[:alpha:]_/]+\.hpp>'
     Priority: 2
   # C++ Standard Library
   - Regex:    '^<[[:alpha:]_]+>'
