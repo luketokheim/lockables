@@ -1,7 +1,7 @@
 # Lockables
 
 Lockables are class templates for mutex based concurrency in C++17. Synchronize
-data between multiple threads.
+data between multiple threads using locks.
 
 ## Quick start
 
@@ -31,7 +31,35 @@ int main()
 }
 ```
 
-Use the ``apply`` function for multiple [``Guarded<T>``](include/lockables/guarded.hpp)
+The [``Guarded<T>``](include/lockables/guarded.hpp) class methods return a
+pointer like object that owns a lock on the guarded value.
+
+```cpp
+#include <lockables/guarded.hpp>
+
+#include <numeric>
+#include <vector>
+
+int main()
+{
+  lockables::Guarded<std::vector<int>> value{1, 2, 3, 4, 5};
+
+  // The guard allows for mulitple operations in the lock scope.
+  if (auto guard = value.with_exclusive()) {
+    // sum = value[0] + ... + value[n - 1]
+    const int sum = std::reduce(guard->begin(), guard->end());
+
+    // value = value + sum(value)
+    std::transform(guard->begin(), guard->end(), guard->begin(),
+                   [sum](int x) { return x + sum; });
+
+    assert(sum == 15);
+    assert((*guard == std::vector<int>{16, 17, 18, 19, 20}));
+  }
+}
+```
+
+Use the ``with_exclusive`` function for multiple [``Guarded<T>``](include/lockables/guarded.hpp)
 values with deadlock avoidance.
 
 ```cpp
@@ -41,23 +69,24 @@ values with deadlock avoidance.
 
 int main()
 {
-  lockables::Guarded<int> value1{100};
+  lockables::Guarded<int> value1{10};
   lockables::Guarded<std::vector<int>> value2{1, 2, 3, 4, 5};
 
-  // Exclusive lock on both value1 and value2 with deadlock avoidance.
-  const int sum = lockables::apply(
+  const int result = lockables::with_exclusive(
       [](int& x, std::vector<int>& y) {
-        int sum = 0;
+        // sum = (y[0] + ... + y[n - 1]) * x
+        const int sum = std::reduce(y.begin(), y.end()) * x;
+
+        // y[i] += sum
         for (auto& item : y) {
-          item *= x;
-          sum += item;
+          item += sum;
         }
 
         return sum;
       },
       value1, value2);
 
-  assert(sum == 1500);
+  assert(result == 150);
 }
 ```
 
@@ -69,11 +98,11 @@ int main()
     * CP.50: Define a mutex together with the data it guards. Use
       synchronized_value<T> where possible
 
+- [P2559R1](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2559r1.html):
+  Plan for Concurrency Technical Specification Version 2
+  
 - [P0290R4](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p0290r4.html):
-    apply() for synchronized_value<T>
-
-- [N4033](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4033.html):
-    synchronized_value<T> for associating a mutex with a value
+  apply() for synchronized_value<T>
 
 - [folly::Synchronized](https://github.com/facebook/folly/blob/main/folly/docs/Synchronized.md)
 

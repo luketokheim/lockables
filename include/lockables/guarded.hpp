@@ -1,3 +1,8 @@
+//
+// lockables/guarded.hpp
+//
+// Copyright 2023 Luke Tokheim
+//
 /**
   Guarded<T> is a class template that stores a mutex together with the value it
   guards.
@@ -32,9 +37,10 @@
 
   assert(copy == 19);
 */
-#ifndef LOCKABLES_GUARDED_H_
-#define LOCKABLES_GUARDED_H_
+#ifndef LOCKABLES_GUARDED_HPP_
+#define LOCKABLES_GUARDED_HPP_
 
+#include <functional>
 #include <mutex>
 #include <shared_mutex>
 #include <type_traits>
@@ -51,7 +57,7 @@ namespace lockables {
 
   GuardedScope {
     T* non_owning
-    std::scoped_lock<Mutex> lock
+    std::scoped_lock lock
   }
 */
 template <typename T, typename Mutex>
@@ -95,8 +101,11 @@ class GuardedScope;
   CP.50: Define a mutex together with the data it guards. Use
   synchronized_value<T> where possible
 
-  N4033: synchronized_value<T> for associating a mutex with a value
-  https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4033.html
+  P2559R1: Plan for Concurrency Technical Specification Version 2
+  https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2559r1.html
+
+  P0290R4: apply() for synchronized_value<T>
+  https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p0290r4.html
 */
 template <typename T, typename Mutex = std::mutex>
 class Guarded {
@@ -159,8 +168,9 @@ class Guarded {
   T value_;
   mutable Mutex mutex_;
 
+  // Fo
   template <typename F, typename... ValueTypes, typename... MutexTypes>
-  friend std::invoke_result_t<F, ValueTypes&...> apply(
+  friend std::invoke_result_t<F, ValueTypes&...> with_exclusive(
       F&& f, Guarded<ValueTypes, MutexTypes>&... values);
 };
 
@@ -180,25 +190,25 @@ auto Guarded<T, Mutex>::with_exclusive() -> exclusive_scope {
 }
 
 /*
-  The apply function provides access to a Guarded<T> object from a user supplied
-  callback.
+  The with_exclusive function provides access to one or more Guarded<T> objects
+  from a user supplied callback.
 
   Basic usage:
 
   Guarded<int> value;
-  apply([](int& x) {
+  with_exclusive([](int& x) {
     x += 10;
   }, value);
 
-  The intent is to support locking of multiple Guarded<T> objects. The apply
-  function relies on std::scoped_lock for deadlock avoidance.
+  The intent is to support locking of multiple Guarded<T> objects. The
+  with_exclusive function relies on std::scoped_lock for deadlock avoidance.
 
   Usage:
 
   Guarded<int> value1{1};
   Guarded<int> value2{2};
 
-  apply([](int& x, int& y) {
+  with_exclusive([](int& x, int& y) {
     x += y;
     y /= 2;
   }, value1, value2);
@@ -207,12 +217,9 @@ auto Guarded<T, Mutex>::with_exclusive() -> exclusive_scope {
 
   P0290R4: apply() for synchronized_value<T>
   https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p0290r4.html
-
-  N4033: synchronized_value<T> for associating a mutex with a value
-  https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4033.html
 */
 template <typename F, typename... ValueTypes, typename... MutexTypes>
-std::invoke_result_t<F, ValueTypes&...> apply(
+std::invoke_result_t<F, ValueTypes&...> with_exclusive(
     F&& f, Guarded<ValueTypes, MutexTypes>&... values) {
   std::scoped_lock<MutexTypes...> lock{
       std::forward<MutexTypes&>(values.mutex_)...};
@@ -271,4 +278,4 @@ class GuardedScope {
 
 }  // namespace lockables
 
-#endif  // LOCKABLES_GUARDED_H_
+#endif  // LOCKABLES_GUARDED_HPP_
