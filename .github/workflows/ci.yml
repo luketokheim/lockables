@@ -65,6 +65,10 @@ jobs:
   sanitize:
     needs: [lint]
 
+    strategy:
+      matrix:
+        sanitizer: [address, thread]
+
     runs-on: ubuntu-22.04
 
     env:
@@ -81,7 +85,7 @@ jobs:
         conan install . -b missing -s build_type=RelWithDebInfo -o developer_mode=True
 
     - name: Configure
-      run: cmake --preset=ci-sanitize
+      run: cmake --preset=ci-sanitize-${{ matrix.sanitizer }}
 
     - name: Build
       run: cmake --build build/sanitize -j 2
@@ -95,6 +99,7 @@ jobs:
           strict_init_order=1:\
           detect_leaks=1"
         UBSAN_OPTIONS: print_stacktrace=1
+        TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
       run: ctest --output-on-failure --no-tests=error -j 2
 
   test:

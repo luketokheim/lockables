@@ -140,11 +140,26 @@
       "name": "ci-sanitize",
       "binaryDir": "${sourceDir}/build/sanitize",
       "inherits": ["ci-linux", "dev-mode", "conan"],
+      "hidden": true,
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Sanitize",
         "CMAKE_CXX_FLAGS_SANITIZE": "-O2 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-common",
         "CMAKE_MAP_IMPORTED_CONFIG_SANITIZE": "Sanitize;RelWithDebInfo;Release;Debug;",
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/RelWithDebInfo/generators/conan_toolchain.cmake"
+      }
+    },
+    {
+      "name": "ci-sanitize-address",
+      "inherits": ["ci-sanitize"],
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS_SANITIZE": "-O2 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-common"
+      }
+    },
+    {
+      "name": "ci-sanitize-thread",
+      "inherits": ["ci-sanitize"],
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS_SANITIZE": "-O2 -g -fsanitize=thread -fno-omit-frame-pointer -fno-common"
       }
     },
     {
