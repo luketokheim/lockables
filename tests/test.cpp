@@ -1,7 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <lockables/guarded.hpp>
-#include <lockables/value.hpp>
 
 #include <numeric>
 #include <vector>
@@ -155,58 +154,4 @@ TEST_CASE("Guarded with_exclusive multiple example",
         y /= 2;
       },
       value1, value2);
-}
-
-TEST_CASE("Value example", "[lockables][examples][Value]") {
-  using namespace lockables;
-
-  Value<int> value{9};
-  value.with_exclusive([](int& x) {
-    // Writer access. The mutex is locked until this function returns.
-    x += 10;
-  });
-
-  const int copy = value.with_shared([](const int& x) {
-    // Reader access.
-    // x += 10;  // will not compile!
-    return x;
-  });
-
-  assert(copy == 19);
-}
-
-TEST_CASE("Value vector example", "[lockables][examples][Value]") {
-  using namespace lockables;
-
-  // Parameters are forwarded to the std::vector constructor.
-  Value<std::vector<int>> value{1, 2, 3, 4, 5};
-
-  // Reader with shared lock.
-  value.with_shared([](const std::vector<int>& x) {
-    if (!x.empty()) {
-      [[maybe_unused]] int copy = x.back();
-    }
-  });
-
-  // Writer with exclusive lock.
-  value.with_exclusive([](std::vector<int>& x) {
-    x.push_back(100);
-    x.clear();
-  });
-}
-
-TEST_CASE("Value::with_shared example", "[lockables][examples][Value]") {
-  using namespace lockables;
-
-  Value<int> value{101};
-  const int copy = value.with_shared([](const int& x) { return x; });
-
-  assert(copy == 101);
-}
-
-TEST_CASE("Value::with_exclusive example", "[lockables][examples][Value]") {
-  using namespace lockables;
-
-  Value<int> value;
-  value.with_exclusive([](int& x) { x = 102; });
 }
