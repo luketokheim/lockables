@@ -94,7 +94,7 @@ int main()
 }
 ```
 
-## Anti-patterns, do not do this!
+## Anti-patterns: Do not do this!
 
 Solution: The user must not keep a pointer or reference to the guarded value
 outside the locked scope.

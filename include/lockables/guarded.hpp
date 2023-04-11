@@ -272,16 +272,8 @@ class GuardedScope {
   using pointer = T*;
   using element_type = T;
 
-  // Use these std lock types internally for shared access from readers.
-  // - std::scoped_lock<std::mutex>
-  // - std::shared_lock<std::shared_mutex>
-  //
-  // Always use std::scoped_lock<Mutex> for writers.
-  //
-  // This means that if the user chooses std::mutex the shared and exclusive
-  // locks are the same type.
-  //
-  // By convention, automatically selects shared lock if T is const.
+  // By convention, automatically selects shared_lock_t if T is const and
+  // defaults to std::scoped_lock otherwise.
   using lock_type = std::conditional_t<std::is_const_v<T>, shared_lock_t<Mutex>,
                                        std::scoped_lock<Mutex>>;
 
