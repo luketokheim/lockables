@@ -36,7 +36,12 @@ struct Fields {
   int64_t field2{};
   std::string field3{};
 
-  bool operator==(const Fields&) const = default;
+  bool operator==(const Fields& other) const {
+    return field1 == other.field1 && field2 == other.field2 &&
+           field3 == other.field3;
+  }
+
+  bool operator!=(const Fields& other) const { return !operator==(other); }
 };
 
 TEMPLATE_TEST_CASE("read and write struct", "[lockables][Guarded]",
@@ -59,7 +64,7 @@ TEMPLATE_TEST_CASE("read and write struct", "[lockables][Guarded]",
 
   if (auto guard = value.with_shared()) {
     CHECK(guard->field1 == expected.field1 + 1);
-    CHECK(!(*guard == expected));
+    CHECK(*guard != expected);
   }
 }
 
