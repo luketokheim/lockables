@@ -244,20 +244,20 @@ std::invoke_result_t<F, ValueTypes&...> with_exclusive(
   const.
 */
 template <typename Mutex>
-struct shared_lock {
+struct SharedLock {
   using type = std::scoped_lock<Mutex>;
 };
 
 template <typename Mutex>
-using shared_lock_t = typename shared_lock<Mutex>::type;
+using shared_lock_t = typename SharedLock<Mutex>::type;
 
 template <>
-struct shared_lock<std::shared_mutex> {
+struct SharedLock<std::shared_mutex> {
   using type = std::shared_lock<std::shared_mutex>;
 };
 
 template <>
-struct shared_lock<std::shared_timed_mutex> {
+struct SharedLock<std::shared_timed_mutex> {
   using type = std::shared_lock<std::shared_timed_mutex>;
 };
 
