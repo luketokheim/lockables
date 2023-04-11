@@ -59,7 +59,7 @@ TEMPLATE_TEST_CASE("read and write struct", "[lockables][Guarded]",
 
   if (auto guard = value.with_shared()) {
     CHECK(guard->field1 == expected.field1 + 1);
-    CHECK(*guard != expected);
+    CHECK(!(*guard == expected));
   }
 }
 
