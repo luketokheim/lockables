@@ -1,5 +1,7 @@
 # Lockables
 
+[![CI](https://github.com/luketokheim/lockables/actions/workflows/ci.yml/badge.svg)](https://github.com/luketokheim/lockables/actions/workflows/ci.yml)
+
 Lockables are class templates for mutex based concurrency in C++17. Synchronize
 data between multiple threads using locks.
 
@@ -37,6 +39,7 @@ pointer like object that owns a lock on the guarded value.
 ```cpp
 #include <lockables/guarded.hpp>
 
+#include <algorithm>
 #include <numeric>
 #include <vector>
 
@@ -65,6 +68,7 @@ values with deadlock avoidance.
 ```cpp
 #include <lockables/guarded.hpp>
 
+#include <numeric>
 #include <vector>
 
 int main()

@@ -2,6 +2,7 @@
 
 #include <lockables/guarded.hpp>
 
+#include <algorithm>
 #include <numeric>
 #include <vector>
 
