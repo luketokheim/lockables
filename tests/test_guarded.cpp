@@ -230,7 +230,7 @@ TEMPLATE_TEST_CASE("all the mutex types", "[lockables][Guarded]", std::mutex,
   if (auto guard = value.with_shared()) {
     copy = *guard;
 
-    using lock_type = decltype(guard)::lock_type;
+    using lock_type = typename decltype(guard)::lock_type;
     if constexpr (std::is_same_v<Mutex, std::shared_mutex> ||
                   std::is_same_v<Mutex, std::shared_timed_mutex>) {
       static_assert(std::is_same_v<lock_type, std::shared_lock<Mutex>>,
