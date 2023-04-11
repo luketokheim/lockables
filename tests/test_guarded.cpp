@@ -198,13 +198,11 @@ TEMPLATE_TEST_CASE("operators", "[lockables][GuardedScope]",
 }
 
 TEST_CASE("with_exclusive", "[lockables][examples][Guarded]") {
-  using namespace lockables;
-
-  Guarded<int> v1{1};
-  Guarded<int> v2{2};
-  Guarded<int> v3{3};
-  Guarded<std::string> v4{"Hello with_exclusive"};
-  Guarded<std::vector<int>> v5;
+  lockables::Guarded<int> v1{1};
+  lockables::Guarded<int> v2{2};
+  lockables::Guarded<int> v3{3};
+  lockables::Guarded<std::string> v4{"Hello with_exclusive"};
+  lockables::Guarded<std::vector<int>> v5;
 
   const int sum = lockables::with_exclusive(
       [](int& x, int& y, int& z, std::string& /*str*/, std::vector<int>& list) {

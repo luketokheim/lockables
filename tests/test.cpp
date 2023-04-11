@@ -65,15 +65,13 @@ TEST_CASE("README", "[lockables][examples]") {
 }
 
 TEST_CASE("Guarded example", "[lockables][examples][Guarded]") {
-  using namespace lockables;
-
-  Guarded<int> value{9};
+  lockables::Guarded<int> value{9};
   if (auto guard = value.with_exclusive()) {
     // Writer access. The mutex is locked until guard goes out of scope.
     *guard += 10;
   }
 
-  int copy = 0;
+  [[maybe_unused]] int copy = 0;
   if (auto guard = value.with_shared()) {
     // Reader access.
     copy = *guard;
@@ -84,10 +82,8 @@ TEST_CASE("Guarded example", "[lockables][examples][Guarded]") {
 }
 
 TEST_CASE("Guarded vector example", "[lockables][examples][Guarded]") {
-  using namespace lockables;
-
   // Parameters are forwarded to the std::vector constructor.
-  Guarded<std::vector<int>> value{1, 2, 3, 4, 5};
+  lockables::Guarded<std::vector<int>> value{1, 2, 3, 4, 5};
 
   // Reader with shared lock.
   if (const auto guard = value.with_shared()) {
@@ -105,14 +101,12 @@ TEST_CASE("Guarded vector example", "[lockables][examples][Guarded]") {
 }
 
 TEST_CASE("Guarded::with_shared example", "[lockables][examples][Guarded]") {
-  using namespace lockables;
-
-  Guarded<int> value;
+  lockables::Guarded<int> value;
   if (const auto guard = value.with_shared()) {
     [[maybe_unused]] const int copy = *guard;
   }
 
-  Guarded<std::vector<int>> list;
+  lockables::Guarded<std::vector<int>> list;
   if (const auto guard = list.with_shared()) {
     if (!guard->empty()) {
       [[maybe_unused]] const int copy = guard->back();
@@ -121,14 +115,12 @@ TEST_CASE("Guarded::with_shared example", "[lockables][examples][Guarded]") {
 }
 
 TEST_CASE("Guarded::with_exclusive example", "[lockables][examples][Guarded]") {
-  using namespace lockables;
-
-  Guarded<int> value;
+  lockables::Guarded<int> value;
   if (auto guard = value.with_exclusive()) {
     *guard = 10;
   }
 
-  Guarded<std::vector<int>> list;
+  lockables::Guarded<std::vector<int>> list;
   if (auto guard = list.with_exclusive()) {
     guard->push_back(100);
   }
@@ -136,18 +128,14 @@ TEST_CASE("Guarded::with_exclusive example", "[lockables][examples][Guarded]") {
 
 TEST_CASE("Guarded with_exclusive single example",
           "[lockables][examples][Guarded][with_exclusive]") {
-  using namespace lockables;
-
-  Guarded<int> value;
+  lockables::Guarded<int> value;
   lockables::with_exclusive([](int& x) { x += 10; }, value);
 }
 
 TEST_CASE("Guarded with_exclusive multiple example",
           "[lockables][examples][Guarded][with_exclusive]") {
-  using namespace lockables;
-
-  Guarded<int> value1{1};
-  Guarded<int> value2{2};
+  lockables::Guarded<int> value1{1};
+  lockables::Guarded<int> value2{2};
 
   lockables::with_exclusive(
       [](int& x, int& y) {

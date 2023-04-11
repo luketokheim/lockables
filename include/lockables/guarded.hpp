@@ -166,7 +166,7 @@ class Guarded {
 
  private:
   T value_;
-  mutable Mutex mutex_;
+  mutable Mutex mutex_{};
 
   // The with_exclusive function needs access to the internals to lock multiple
   // Guarded<T> values at once.
@@ -178,7 +178,7 @@ class Guarded {
 template <typename T, typename Mutex>
 template <typename... Args>
 Guarded<T, Mutex>::Guarded(Args&&... args)
-    : value_{std::forward<Args>(args)...}, mutex_{} {}
+    : value_{std::forward<Args>(args)...} {}
 
 template <typename T, typename Mutex>
 auto Guarded<T, Mutex>::with_shared() const -> shared_scope {
