@@ -5,14 +5,15 @@ library from Google. Most of the benchmarks compare ``std::mutex`` and
 ``std::shared_metux`` performance over various numbers of reader and writer
 threads.
 
-For example, the test named:
+For example, the test case named:
 
 ```console
-BM_Guarded_Threads<std::mutex>/MutexTest/2/threads:8
+BM_Guarded_Fixture<std::mutex>/Scoped/2/threads:8 
 ```
 
-Runs 8 total threads, 2 writer threads + 6 reader threads, all accessing one
-``Guarded<int>`` value protected by a ``std::mutex``.
+Runs 8 total threads all accessing one ``Guarded<int>`` value protected by a
+``std::mutex``. In this run there are 2 writer threads and 6 reader threads.
+
 
 ## Build
 
@@ -32,37 +33,38 @@ Will generate a report that looks something like this.
 
 ```console
 Running ./build/Release/benchmarks/lockables-bench
-Run on (8 X 24.1208 MHz CPU s)
+Run on (8 X 4900 MHz CPU s)
 CPU Caches:
-  L1 Data 64 KiB
-  L1 Instruction 128 KiB
-  L2 Unified 4096 KiB (x8)
-Load Average: 1.45, 1.64, 1.73
--------------------------------------------------------------------------------------------------------------
-Benchmark                                                                   Time             CPU   Iterations
--------------------------------------------------------------------------------------------------------------
-BM_Guarded_Shared<int, std::mutex>                                       6.77 ns         6.77 ns     82091215
-BM_Guarded_Shared<int, std::shared_mutex>                                15.5 ns         15.5 ns     45115883
-BM_Guarded_Exclusive<int, std::mutex>                                    6.77 ns         6.77 ns    101840402
-BM_Guarded_Exclusive<int, std::shared_mutex>                             16.9 ns         16.9 ns     42285852
-BM_Guarded_Multiple<int, std::mutex>                                     13.9 ns         13.9 ns     50140752
-BM_Guarded_Multiple<int, std::shared_mutex>                              30.8 ns         30.8 ns     22705378
-BM_Guarded_Threads<std::mutex>/MutexTest/2/threads:4                     24.3 ns         80.3 ns     10367912
-BM_Guarded_Threads<std::mutex>/MutexTest/2/threads:8                     24.6 ns          130 ns      4945120
-BM_Guarded_Threads<std::mutex>/MutexTest/2/threads:16                    27.1 ns          221 ns      3233344
-BM_Guarded_Threads<std::mutex>/MutexTest/4/threads:4                     16.3 ns         49.8 ns     13972752
-BM_Guarded_Threads<std::mutex>/MutexTest/4/threads:8                     23.5 ns          128 ns      5604032
-BM_Guarded_Threads<std::mutex>/MutexTest/4/threads:16                    23.9 ns          209 ns      3329280
-BM_Guarded_Threads<std::mutex>/MutexTest/8/threads:4                     15.9 ns         48.6 ns     14068160
-BM_Guarded_Threads<std::mutex>/MutexTest/8/threads:8                     21.7 ns         94.3 ns      5667616
-BM_Guarded_Threads<std::mutex>/MutexTest/8/threads:16                    25.3 ns          175 ns      3429536
-BM_Guarded_Threads<std::shared_mutex>/SharedMutexTest/2/threads:4        81.7 ns          180 ns      3780668
-BM_Guarded_Threads<std::shared_mutex>/SharedMutexTest/2/threads:8         216 ns          742 ns       930712
-BM_Guarded_Threads<std::shared_mutex>/SharedMutexTest/2/threads:16        241 ns         1008 ns       681584
-BM_Guarded_Threads<std::shared_mutex>/SharedMutexTest/4/threads:4         122 ns          259 ns      2866504
-BM_Guarded_Threads<std::shared_mutex>/SharedMutexTest/4/threads:8         327 ns         1143 ns       753288
-BM_Guarded_Threads<std::shared_mutex>/SharedMutexTest/4/threads:16        341 ns         1279 ns       529440
-BM_Guarded_Threads<std::shared_mutex>/SharedMutexTest/8/threads:4         123 ns          262 ns      2809836
-BM_Guarded_Threads<std::shared_mutex>/SharedMutexTest/8/threads:8         405 ns         1455 ns       473328
-BM_Guarded_Threads<std::shared_mutex>/SharedMutexTest/8/threads:16        534 ns         1958 ns       376960
+  L1 Data 32 KiB (x8)
+  L1 Instruction 32 KiB (x8)
+  L2 Unified 256 KiB (x8)
+  L3 Unified 12288 KiB (x1)
+Load Average: 0.09, 0.13, 0.20
+----------------------------------------------------------------------------------------------------
+Benchmark                                                          Time             CPU   Iterations
+----------------------------------------------------------------------------------------------------
+BM_Guarded_Shared<int, std::mutex>                              4.53 ns         4.53 ns    157135470
+BM_Guarded_Shared<int, std::shared_mutex>                       12.8 ns         12.8 ns     54742381
+BM_Guarded_Exclusive<int, std::mutex>                           4.53 ns         4.53 ns    154471766
+BM_Guarded_Exclusive<int, std::shared_mutex>                    18.9 ns         18.9 ns     36433855
+BM_Guarded_Multiple<int, std::mutex>                            14.3 ns         14.3 ns     48662736
+BM_Guarded_Multiple<int, std::shared_mutex>                     37.2 ns         37.2 ns     18799451
+BM_Guarded_Fixture<std::mutex>/Scoped/2/threads:4               51.1 ns          183 ns      4020044
+BM_Guarded_Fixture<std::mutex>/Scoped/2/threads:8               53.4 ns          361 ns      1772704
+BM_Guarded_Fixture<std::mutex>/Scoped/2/threads:16              52.7 ns          379 ns      1957728
+BM_Guarded_Fixture<std::mutex>/Scoped/4/threads:4               50.7 ns          181 ns      3919188
+BM_Guarded_Fixture<std::mutex>/Scoped/4/threads:8               54.5 ns          398 ns      1781784
+BM_Guarded_Fixture<std::mutex>/Scoped/4/threads:16              50.1 ns          396 ns      1734576
+BM_Guarded_Fixture<std::mutex>/Scoped/8/threads:4               50.0 ns          179 ns      3807104
+BM_Guarded_Fixture<std::mutex>/Scoped/8/threads:8               56.5 ns          411 ns      1787320
+BM_Guarded_Fixture<std::mutex>/Scoped/8/threads:16              52.5 ns          418 ns      1805072
+BM_Guarded_Fixture<std::shared_mutex>/Shared/2/threads:4         105 ns          244 ns      2942380
+BM_Guarded_Fixture<std::shared_mutex>/Shared/2/threads:8        79.2 ns          439 ns      1665912
+BM_Guarded_Fixture<std::shared_mutex>/Shared/2/threads:16       76.1 ns          713 ns      1153584
+BM_Guarded_Fixture<std::shared_mutex>/Shared/4/threads:4         166 ns          653 ns      1255744
+BM_Guarded_Fixture<std::shared_mutex>/Shared/4/threads:8         100 ns          493 ns      1364160
+BM_Guarded_Fixture<std::shared_mutex>/Shared/4/threads:16       74.9 ns          660 ns      1159248
+BM_Guarded_Fixture<std::shared_mutex>/Shared/8/threads:4         159 ns          627 ns      1233704
+BM_Guarded_Fixture<std::shared_mutex>/Shared/8/threads:8         158 ns         1200 ns       606584
+BM_Guarded_Fixture<std::shared_mutex>/Shared/8/threads:16        111 ns         1126 ns       709856
 ```

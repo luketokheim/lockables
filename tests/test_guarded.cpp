@@ -2,8 +2,10 @@
 #include <lockables/guarded.hpp>
 
 #include <future>
+#include <memory>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 TEMPLATE_PRODUCT_TEST_CASE("read and write PODs", "[lockables][Guarded]",
@@ -246,4 +248,104 @@ TEMPLATE_TEST_CASE("all the mutex types", "[lockables][Guarded]", std::mutex,
   copy = lockables::with_exclusive([](int& x) { return x; }, value);
 
   CHECK(copy == 20);
+}
+
+TEST_CASE("constructor", "[lockables][examples][Guarded]") {
+  {
+    lockables::Guarded<int> value{-1};
+    if (auto guard = value.with_shared()) {
+      CHECK(*guard == -1);
+    }
+  }
+
+  {
+    const int x = 10;
+
+    lockables::Guarded<int> value{x};
+    if (auto guard = value.with_shared()) {
+      CHECK(*guard == 10);
+    }
+  }
+
+  {
+    auto value = std::make_unique<lockables::Guarded<int>>(101);
+    if (auto guard = value->with_shared()) {
+      CHECK(*guard == 101);
+    }
+  }
+
+  {
+    auto value = std::make_shared<lockables::Guarded<int>>(101);
+    if (auto guard = value->with_shared()) {
+      CHECK(*guard == 101);
+    }
+  }
+
+  {
+    const std::vector<int> x(100, 1);
+
+    lockables::Guarded<std::vector<int>> value{x};
+    if (auto guard = value.with_shared()) {
+      CHECK(*guard == std::vector<int>(100, 1));
+    }
+  }
+
+  {
+    lockables::Guarded<std::vector<int>> value{std::vector<int>{1, 2, 3}};
+    if (auto guard = value.with_shared()) {
+      CHECK(*guard == std::vector<int>{1, 2, 3});
+    }
+  }
+
+  {
+    lockables::Guarded<std::vector<int>> value{4, 5, 6};
+    if (auto guard = value.with_shared()) {
+      CHECK(*guard == std::vector<int>{4, 5, 6});
+    }
+  }
+
+  {
+    using hash_map = std::unordered_map<std::string, int>;
+
+    lockables::Guarded<hash_map> value{hash_map{{"Hello", 15}, {"World", 10}}};
+    if (auto guard = value.with_shared()) {
+      CHECK(guard->at("Hello") == 15);
+    }
+
+    if (auto guard = value.with_exclusive()) {
+      CHECK((*guard)["Hello"] == 15);
+      CHECK((*guard)["Nope"] == 0);
+    }
+  }
+
+  {
+    using hash_map = std::unordered_map<std::string, int>;
+    hash_map map{{"Hello", 15}, {"World", 10}};
+
+    lockables::Guarded<hash_map> value{map};
+    if (auto guard = value.with_shared()) {
+      CHECK(guard->at("Hello") == 15);
+    }
+  }
+
+  {
+    using hash_map = std::unordered_map<std::string, int>;
+    hash_map map{{"Hello", 15}, {"World", 10}};
+
+    lockables::Guarded<hash_map> value{std::move(map)};
+    if (auto guard = value.with_shared()) {
+      CHECK(guard->at("Hello") == 15);
+    }
+  }
+
+  {
+    using hash_map = std::unordered_map<std::string, int>;
+    auto map =
+        std::make_unique<hash_map>(hash_map{{"Hello", 15}, {"World", 10}});
+
+    lockables::Guarded<std::unique_ptr<hash_map>> value{std::move(map)};
+    if (auto guard = value.with_shared()) {
+      CHECK((*guard)->at("Hello") == 15);
+    }
+  }
 }

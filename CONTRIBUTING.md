@@ -1,9 +1,9 @@
 # Contributing
 
-<!--
-    Short overview, rules, general guidelines, notes about pull requests and
-    style should go here.
--->
+By submitting a pull request or a patch, you represent that you have the right
+to license your contribution to the lockables project owners and the community,
+agree that your contributions are licensed under the lockables license, and
+agree to future changes to the licensing.
 
 ## Getting started
 
