@@ -27,7 +27,7 @@ TEST_CASE("README", "[lockables][examples]") {
   {
     lockables::Guarded<std::vector<int>> value{1, 2, 3, 4, 5};
 
-    // The guard allows for mulitple operations in the lock scope.
+    // The guard allows for multiple operations in the lock scope.
     if (auto guard = value.with_exclusive()) {
       // sum = value[0] + ... + value[n - 1]
       const int sum = std::reduce(guard->begin(), guard->end());
