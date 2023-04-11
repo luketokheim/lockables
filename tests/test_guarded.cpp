@@ -217,3 +217,37 @@ TEST_CASE("with_exclusive", "[lockables][examples][Guarded]") {
 
   CHECK(sum == 26);
 }
+
+TEMPLATE_TEST_CASE("all the mutex types", "[lockables][Guarded]", std::mutex,
+                   std::timed_mutex, std::recursive_mutex,
+                   std::recursive_timed_mutex, std::shared_mutex,
+                   std::shared_timed_mutex) {
+  using Mutex = TestType;
+
+  lockables::Guarded<int, Mutex> value{10};
+
+  int copy = 0;
+  if (auto guard = value.with_shared()) {
+    copy = *guard;
+
+    using lock_type = decltype(guard)::lock_type;
+    if constexpr (std::is_same_v<Mutex, std::shared_mutex> ||
+                  std::is_same_v<Mutex, std::shared_timed_mutex>) {
+      static_assert(std::is_same_v<lock_type, std::shared_lock<Mutex>>,
+                    "shared_lock trait not found");
+    } else {
+      static_assert(std::is_same_v<lock_type, std::scoped_lock<Mutex>>,
+                    "scoped_lock trait not found");
+    }
+  }
+
+  CHECK(copy == 10);
+
+  if (auto guard = value.with_exclusive()) {
+    *guard = copy * 2;
+  }
+
+  copy = lockables::with_exclusive([](int& x) { return x; }, value);
+
+  CHECK(copy == 20);
+}

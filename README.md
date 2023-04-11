@@ -44,7 +44,7 @@ int main()
 {
   lockables::Guarded<std::vector<int>> value{1, 2, 3, 4, 5};
 
-  // The guard allows for mulitple operations in the lock scope.
+  // The guard allows for multiple operations in the lock scope.
   if (auto guard = value.with_exclusive()) {
     // sum = value[0] + ... + value[n - 1]
     const int sum = std::reduce(guard->begin(), guard->end());
@@ -88,6 +88,59 @@ int main()
 
   assert(result == 150);
 }
+```
+
+## Anti-patterns, do not do this!
+
+Solution: The user must not keep a pointer or reference to the guarded value
+outside the locked scope.
+
+```cpp
+lockables::Guarded<int> value;
+
+int* unguarded_pointer{};
+if (auto guard = value.with_exclusive()) {
+  // No! User must not keep a pointer or reference outside the guarded
+  // scope.
+  unguarded_pointer = &(*guard);
+}
+
+// No! Data race if another thread is accessing value.
+// *unguarded_pointer = 1;
+```
+
+Solution: A calling thread must not own the mutex prior to calling any of the
+locking functions. To lock multiple values, use the ``with_exclusive`` function
+which voids deadlock.
+
+```cpp
+lockables::Guarded<int> value;
+
+if (auto guard = value.with_exclusive()) {
+  // No! Deadlock since this thread already owns a lock on value.
+  // auto recursive_reader = value.with_shared();
+
+  // No! Deadlock again.
+  // auto recursive_writer = value.with_exclusive();
+
+  // No! Deadlock again.
+  // lockables::with_exclusive([](int& x) {}, value);
+}
+```
+
+Solution: Use the ``with_exclusive`` function to lock multiple values. It uses
+deadlock avoidance from ``std::scoped_lock``.
+
+```cpp
+lockables::Guarded<int> value1;
+lockables::Guarded<int> value2;
+
+// No! Deadlock possible if another thread locks value1 and value2 in different
+// order.
+// {
+//   auto guard2 = value2.with_exclusive();
+//   auto guard1 = value1.with_exclusive();
+// }
 ```
 
 ## References

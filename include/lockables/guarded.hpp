@@ -168,7 +168,8 @@ class Guarded {
   T value_;
   mutable Mutex mutex_;
 
-  // Fo
+  // The with_exclusive function needs access to the internals to lock multiple
+  // Guarded<T> values at once.
   template <typename F, typename... ValueTypes, typename... MutexTypes>
   friend std::invoke_result_t<F, ValueTypes&...> with_exclusive(
       F&& f, Guarded<ValueTypes, MutexTypes>&... values);
@@ -228,6 +229,39 @@ std::invoke_result_t<F, ValueTypes&...> with_exclusive(
 }
 
 /**
+  Type trait to select which lock is used in GuardedScope<T>.
+
+  Use these std lock types internally for shared access from readers.
+   - std::scoped_lock<std::mutex> lock(...);
+   - std::shared_lock<std::shared_mutex> lock(...);
+
+  Always use std::scoped_lock<Mutex> for writers.
+
+  This means that if the user chooses std::mutex the shared and exclusive locks
+  are the same type.
+
+  By convention GuardedScope<T>, automatically selects shared_lock if T is
+  const.
+*/
+template <typename Mutex>
+struct shared_lock {
+  using type = std::scoped_lock<Mutex>;
+};
+
+template <typename Mutex>
+using shared_lock_t = typename shared_lock<Mutex>::type;
+
+template <>
+struct shared_lock<std::shared_mutex> {
+  using type = std::shared_lock<std::shared_mutex>;
+};
+
+template <>
+struct shared_lock<std::shared_timed_mutex> {
+  using type = std::shared_lock<std::shared_timed_mutex>;
+};
+
+/**
   GuardedScope<T> is a pointer like object that owns a lock and has a non-owning
   pointer to the guarded value of type T in Guarded<T>.
 */
@@ -239,19 +273,17 @@ class GuardedScope {
   using element_type = T;
 
   // Use these std lock types internally for shared access from readers.
-  // - std::scoped_lock<std::mutex> lock(...);
-  // - std::shared_lock<std::shared_mutex> lock(...);
+  // - std::scoped_lock<std::mutex>
+  // - std::shared_lock<std::shared_mutex>
   //
   // Always use std::scoped_lock<Mutex> for writers.
   //
   // This means that if the user chooses std::mutex the shared and exclusive
   // locks are the same type.
   //
-  // By convention, automatically selects shared access if T is const.
-  using lock_type =
-      std::conditional_t<std::is_const_v<T> &&
-                             std::is_same_v<Mutex, std::shared_mutex>,
-                         std::shared_lock<Mutex>, std::scoped_lock<Mutex>>;
+  // By convention, automatically selects shared lock if T is const.
+  using lock_type = std::conditional_t<std::is_const_v<T>, shared_lock_t<Mutex>,
+                                       std::scoped_lock<Mutex>>;
 
   // RAII to support std::scoped_lock.
   GuardedScope(pointer ptr, Mutex& mutex) : non_owning_{ptr}, lock_{mutex} {}
