@@ -4,7 +4,7 @@
 #include <iostream>
 
 template <typename T, typename Mutex>
-void BM_Guarded_CopyShared(benchmark::State& state) {
+void BM_Guarded_Shared(benchmark::State& state) {
   lockables::Guarded<T, Mutex> value;
   for (auto _ : state) {
     T copy{};
@@ -16,11 +16,11 @@ void BM_Guarded_CopyShared(benchmark::State& state) {
   }
 }
 
-BENCHMARK(BM_Guarded_CopyShared<int, std::mutex>);
-BENCHMARK(BM_Guarded_CopyShared<int, std::shared_mutex>);
+BENCHMARK(BM_Guarded_Shared<int, std::mutex>);
+BENCHMARK(BM_Guarded_Shared<int, std::shared_mutex>);
 
 template <typename T, typename Mutex>
-void BM_Guarded_CopyExclusive(benchmark::State& state) {
+void BM_Guarded_Exclusive(benchmark::State& state) {
   lockables::Guarded<T, Mutex> value;
   for (auto _ : state) {
     T copy{};
@@ -32,11 +32,26 @@ void BM_Guarded_CopyExclusive(benchmark::State& state) {
   }
 }
 
-BENCHMARK(BM_Guarded_CopyExclusive<int, std::mutex>);
-BENCHMARK(BM_Guarded_CopyExclusive<int, std::shared_mutex>);
+BENCHMARK(BM_Guarded_Exclusive<int, std::mutex>);
+BENCHMARK(BM_Guarded_Exclusive<int, std::shared_mutex>);
+
+template <typename T, typename Mutex>
+void BM_Guarded_Multiple(benchmark::State& state) {
+  lockables::Guarded<T, Mutex> value1;
+  lockables::Guarded<T, Mutex> value2;
+  for (auto _ : state) {
+    auto copy = lockables::with_exclusive(
+        [](const auto& x, const auto& y) { return x + y; }, value1, value2);
+
+    benchmark::DoNotOptimize(copy);
+  }
+}
+
+BENCHMARK(BM_Guarded_Multiple<int, std::mutex>);
+BENCHMARK(BM_Guarded_Multiple<int, std::shared_mutex>);
 
 template <typename Mutex>
-struct BM_GuardedFixture : benchmark::Fixture {
+struct BM_Guarded_Threads : benchmark::Fixture {
   lockables::Guarded<int64_t, Mutex> value{};
 
   void BenchmarkCase(benchmark::State& state) override {
@@ -62,19 +77,23 @@ struct BM_GuardedFixture : benchmark::Fixture {
   }
 };
 
-BENCHMARK_TEMPLATE_DEFINE_F(BM_GuardedFixture, MutexThreadTest, std::mutex)
-(benchmark::State& state) { BM_GuardedFixture::BenchmarkCase(state); }
+BENCHMARK_TEMPLATE_DEFINE_F(BM_Guarded_Threads, MutexTest, std::mutex)
+(benchmark::State& state) { BM_Guarded_Threads::BenchmarkCase(state); }
 
 // Run 4-16 threads with [2, 4, ..., 16) writers and the rest readers.
-BENCHMARK_REGISTER_F(BM_GuardedFixture, MutexThreadTest)
+BENCHMARK_REGISTER_F(BM_Guarded_Threads, MutexTest)
     ->ThreadRange(4, 16)
-    ->DenseRange(2, 16, 2);
+    ->Arg(2)
+    ->Arg(4)
+    ->Arg(8);
 
-BENCHMARK_TEMPLATE_DEFINE_F(BM_GuardedFixture, SharedMutexThreadTest,
+BENCHMARK_TEMPLATE_DEFINE_F(BM_Guarded_Threads, SharedMutexTest,
                             std::shared_mutex)
-(benchmark::State& state) { BM_GuardedFixture::BenchmarkCase(state); }
+(benchmark::State& state) { BM_Guarded_Threads::BenchmarkCase(state); }
 
 // Run 4-16 threads with [2, 4, ..., 16) writers and the rest readers.
-BENCHMARK_REGISTER_F(BM_GuardedFixture, SharedMutexThreadTest)
+BENCHMARK_REGISTER_F(BM_Guarded_Threads, SharedMutexTest)
     ->ThreadRange(4, 16)
-    ->DenseRange(2, 16, 2);
+    ->Arg(2)
+    ->Arg(4)
+    ->Arg(8);

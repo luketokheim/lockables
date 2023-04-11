@@ -160,9 +160,7 @@ TEMPLATE_TEST_CASE("operators", "[lockables][GuardedScope]",
   {
     Scope scope{&value, m};
     CHECK(scope);
-    if (!scope) {
-      CHECK(false);
-    }
+    CHECK(static_cast<bool>(scope));
     CHECK(&(*scope) == &value);
     CHECK(*scope == value);
   }
@@ -170,9 +168,7 @@ TEMPLATE_TEST_CASE("operators", "[lockables][GuardedScope]",
   {
     const Scope scope{&value, m};
     CHECK(scope);
-    if (!scope) {
-      CHECK(false);
-    }
+    CHECK(static_cast<bool>(scope));
     CHECK(&(*scope) == &value);
     CHECK(*scope == value);
   }
@@ -180,9 +176,7 @@ TEMPLATE_TEST_CASE("operators", "[lockables][GuardedScope]",
   {
     Scope scope{nullptr, m};
     CHECK(!scope);
-    if (scope) {
-      CHECK(false);
-    }
+    CHECK(!static_cast<bool>(scope));
   }
 
   if (auto scope = Scope{&value, m}) {
@@ -196,7 +190,7 @@ TEMPLATE_TEST_CASE("operators", "[lockables][GuardedScope]",
   }
 }
 
-TEST_CASE("with_exclusive", "[lockables][examples][Guarded]") {
+TEST_CASE("lockables::with_exclusive", "[lockables][examples][Guarded]") {
   lockables::Guarded<int> v1{1};
   lockables::Guarded<int> v2{2};
   lockables::Guarded<int> v3{3};
