@@ -110,8 +110,7 @@ if (auto guard = value.with_exclusive()) {
 ```
 
 Solution: A calling thread must not own the mutex prior to calling any of the
-locking functions. To lock multiple values, use the ``with_exclusive`` function
-which voids deadlock.
+locking functions.
 
 ```cpp
 lockables::Guarded<int> value;
@@ -128,8 +127,8 @@ if (auto guard = value.with_exclusive()) {
 }
 ```
 
-Solution: Use the ``with_exclusive`` function to lock multiple values. It uses
-deadlock avoidance from ``std::scoped_lock``.
+Solution: To lock multiple values, use the ``with_exclusive`` function which
+avoids deadlock.
 
 ```cpp
 lockables::Guarded<int> value1;
