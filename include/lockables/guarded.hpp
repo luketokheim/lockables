@@ -165,7 +165,7 @@ class Guarded {
   [[nodiscard]] exclusive_scope with_exclusive();
 
  private:
-  T value_;
+  T value_{};
   mutable Mutex mutex_{};
 
   // The with_exclusive function needs access to the internals to lock multiple

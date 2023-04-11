@@ -52,8 +52,7 @@ TEMPLATE_TEST_CASE("read and write struct", "[lockables][Guarded]",
   TestType value{expected};
 
   if (auto guard = value.with_shared()) {
-    const auto copy = *guard;
-    CHECK(copy == expected);
+    CHECK(*guard == expected);
   }
 
   if (auto guard = value.with_exclusive()) {
@@ -89,8 +88,8 @@ TEMPLATE_TEST_CASE("M reader threads, N writer threads", "[lockables][Guarded]",
                    (lockables::Guarded<int, std::mutex>),
                    (lockables::Guarded<int, std::shared_mutex>)) {
   constexpr auto kTarget = 1000;
-  const std::size_t kNumThread =
-      std::min(std::thread::hardware_concurrency(), 8u);
+  const std::size_t num_thread =
+      std::min(std::thread::hardware_concurrency(), 8U);
 
   TestType value;
 
@@ -122,9 +121,9 @@ TEMPLATE_TEST_CASE("M reader threads, N writer threads", "[lockables][Guarded]",
   };
 
   // Test all combinations of M reader + N writer
-  for (int num_writer = 1; num_writer < static_cast<int>(kNumThread);
+  for (int num_writer = 1; num_writer < static_cast<int>(num_thread);
        ++num_writer) {
-    std::vector<std::future<std::size_t>> fut_list(kNumThread);
+    std::vector<std::future<std::size_t>> fut_list(num_thread);
 
     auto mid = std::next(fut_list.begin(), num_writer);
 
