@@ -17,17 +17,20 @@ TEMPLATE_PRODUCT_TEST_CASE("read and write PODs", "[lockables][Guarded]",
 
   TestType value{kExpected};
 
-  if (const auto guard = value.with_shared()) {
+  {
+    const auto guard = value.with_shared();
     const auto x = *guard;
     CHECK(x == kExpected);
   }
 
-  if (auto guard = value.with_exclusive()) {
+  {
+    auto guard = value.with_exclusive();
     CHECK(*guard == kExpected);
     *guard += 1;
   }
 
-  if (const auto guard = value.with_shared()) {
+  {
+    const auto guard = value.with_shared();
     const auto x = *guard;
     CHECK(x == kExpected + 1);
   }
@@ -53,17 +56,20 @@ TEMPLATE_TEST_CASE("read and write struct", "[lockables][Guarded]",
 
   TestType value{expected};
 
-  if (auto guard = value.with_shared()) {
+  {
+    auto guard = value.with_shared();
     CHECK(*guard == expected);
   }
 
-  if (auto guard = value.with_exclusive()) {
+  {
+    auto guard = value.with_exclusive();
     CHECK(*guard == expected);
     (*guard).field1 += 1;
     guard->field2 += 1592;
   }
 
-  if (auto guard = value.with_shared()) {
+  {
+    auto guard = value.with_shared();
     CHECK(guard->field1 == expected.field1 + 1);
     CHECK(*guard != expected);
   }
@@ -75,11 +81,13 @@ TEMPLATE_TEST_CASE("read and write container", "[lockables][Guarded]",
   TestType value;
 
   for (int i = 0; i < 100; ++i) {
-    if (auto guard = value.with_exclusive()) {
+    {
+      auto guard = value.with_exclusive();
       guard->push_back(i);
     }
 
-    if (const auto guard = value.with_shared()) {
+    {
+      const auto guard = value.with_shared();
       CHECK(!guard->empty());
       CHECK(guard->back() == i);
     }
@@ -97,29 +105,23 @@ TEMPLATE_TEST_CASE("M reader threads, N writer threads", "[lockables][Guarded]",
 
   const auto writer_func = [&value]() -> std::size_t {
     for (auto i = 1; i <= kTarget; ++i) {
-      if (auto guard = value.with_exclusive()) {
-        *guard = i;
-      } else {
-        CHECK(false);
-      }
+      auto guard = value.with_exclusive();
+      *guard = i;
     }
 
     return 0;
   };
 
   const auto reader_func = [&value]() -> std::size_t {
-    for (std::size_t i = 1; i < std::numeric_limits<std::size_t>::max(); ++i) {
-      if (auto guard = value.with_shared()) {
-        if (*guard >= kTarget) {
-          return i;
-        }
-      } else {
-        CHECK(false);
+    std::size_t i = 1;
+    for (; i < std::numeric_limits<std::size_t>::max(); ++i) {
+      auto guard = value.with_shared();
+      if (*guard >= kTarget) {
+        break;
       }
     }
 
-    CHECK(false);
-    return 0;
+    return i;
   };
 
   // Test all combinations of M reader + N writer
@@ -225,7 +227,8 @@ TEMPLATE_TEST_CASE("all the mutex types", "[lockables][Guarded]", std::mutex,
   lockables::Guarded<int, Mutex> value{10};
 
   int copy = 0;
-  if (auto guard = value.with_shared()) {
+  {
+    const auto guard = value.with_shared();
     copy = *guard;
 
     using lock_type = typename decltype(guard)::lock_type;
@@ -241,7 +244,8 @@ TEMPLATE_TEST_CASE("all the mutex types", "[lockables][Guarded]", std::mutex,
 
   CHECK(copy == 10);
 
-  if (auto guard = value.with_exclusive()) {
+  {
+    auto guard = value.with_exclusive();
     *guard = copy * 2;
   }
 
@@ -250,33 +254,35 @@ TEMPLATE_TEST_CASE("all the mutex types", "[lockables][Guarded]", std::mutex,
   CHECK(copy == 20);
 }
 
-TEST_CASE("constructor", "[lockables][examples][Guarded]") {
+TEST_CASE("constructor", "[lockables][Guarded]") {
   {
     lockables::Guarded<int> value{-1};
-    if (auto guard = value.with_shared()) {
+    {
+      auto guard = value.with_shared();
       CHECK(*guard == -1);
     }
   }
 
   {
-    const int x = 10;
-
-    lockables::Guarded<int> value{x};
-    if (auto guard = value.with_shared()) {
+    lockables::Guarded<int> value{10};
+    {
+      auto guard = value.with_shared();
       CHECK(*guard == 10);
     }
   }
 
   {
     auto value = std::make_unique<lockables::Guarded<int>>(101);
-    if (auto guard = value->with_shared()) {
+    {
+      auto guard = value->with_shared();
       CHECK(*guard == 101);
     }
   }
 
   {
     auto value = std::make_shared<lockables::Guarded<int>>(101);
-    if (auto guard = value->with_shared()) {
+    {
+      auto guard = value->with_shared();
       CHECK(*guard == 101);
     }
   }
@@ -285,21 +291,24 @@ TEST_CASE("constructor", "[lockables][examples][Guarded]") {
     const std::vector<int> x(100, 1);
 
     lockables::Guarded<std::vector<int>> value{x};
-    if (auto guard = value.with_shared()) {
+    {
+      auto guard = value.with_shared();
       CHECK(*guard == std::vector<int>(100, 1));
     }
   }
 
   {
     lockables::Guarded<std::vector<int>> value{std::vector<int>{1, 2, 3}};
-    if (auto guard = value.with_shared()) {
+    {
+      auto guard = value.with_shared();
       CHECK(*guard == std::vector<int>{1, 2, 3});
     }
   }
 
   {
     lockables::Guarded<std::vector<int>> value{4, 5, 6};
-    if (auto guard = value.with_shared()) {
+    {
+      auto guard = value.with_shared();
       CHECK(*guard == std::vector<int>{4, 5, 6});
     }
   }
@@ -308,11 +317,13 @@ TEST_CASE("constructor", "[lockables][examples][Guarded]") {
     using hash_map = std::unordered_map<std::string, int>;
 
     lockables::Guarded<hash_map> value{hash_map{{"Hello", 15}, {"World", 10}}};
-    if (auto guard = value.with_shared()) {
+    {
+      auto guard = value.with_shared();
       CHECK(guard->at("Hello") == 15);
     }
 
-    if (auto guard = value.with_exclusive()) {
+    {
+      auto guard = value.with_exclusive();
       CHECK((*guard)["Hello"] == 15);
       CHECK((*guard)["Nope"] == 0);
     }
@@ -323,7 +334,8 @@ TEST_CASE("constructor", "[lockables][examples][Guarded]") {
     hash_map map{{"Hello", 15}, {"World", 10}};
 
     lockables::Guarded<hash_map> value{map};
-    if (auto guard = value.with_shared()) {
+    {
+      auto guard = value.with_shared();
       CHECK(guard->at("Hello") == 15);
     }
   }
@@ -333,7 +345,8 @@ TEST_CASE("constructor", "[lockables][examples][Guarded]") {
     hash_map map{{"Hello", 15}, {"World", 10}};
 
     lockables::Guarded<hash_map> value{std::move(map)};
-    if (auto guard = value.with_shared()) {
+    {
+      auto guard = value.with_shared();
       CHECK(guard->at("Hello") == 15);
     }
   }
@@ -344,8 +357,19 @@ TEST_CASE("constructor", "[lockables][examples][Guarded]") {
         std::make_unique<hash_map>(hash_map{{"Hello", 15}, {"World", 10}});
 
     lockables::Guarded<std::unique_ptr<hash_map>> value{std::move(map)};
-    if (auto guard = value.with_shared()) {
+    {
+      auto guard = value.with_shared();
       CHECK((*guard)->at("Hello") == 15);
+    }
+  }
+
+  {
+    using hash_map = std::unordered_map<std::string, std::unique_ptr<int>>;
+
+    lockables::Guarded<hash_map> value;
+    {
+      auto guard = value.with_shared();
+      CHECK(guard->empty());
     }
   }
 }

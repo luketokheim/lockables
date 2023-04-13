@@ -14,7 +14,7 @@ TEST_CASE("Anti-pattern: Call with_exclusive with no values",
   // Solution: Just FYI.
 }
 
-TEST_CASE("Anti-pattern: Stealing an unguarded pointer",
+TEST_CASE("Anti-pattern: Data race by keeping an unguarded pointer",
           "[lockables][antipatterns][Guarded]") {
   lockables::Guarded<int> value;
 
@@ -28,7 +28,9 @@ TEST_CASE("Anti-pattern: Stealing an unguarded pointer",
   });
 
   [[maybe_unused]] int* unguarded_pointer{};
-  if (auto guard = value.with_exclusive()) {
+  {
+    auto guard = value.with_exclusive();
+
     // No! User must not keep a pointer or reference outside the guarded
     // scope.
     unguarded_pointer = &(*guard);
@@ -44,9 +46,17 @@ TEST_CASE("Anti-pattern: Stealing an unguarded pointer",
   // No! Data race. 1 thread writing, 1 reading at the same time.
   // int oops = *unguarded_pointer;
 
+  // No! User must not keep a reference to the guarded value.
+  int& unguarded_reference =
+      lockables::with_exclusive([](int& x) -> int& { return x; }, value);
+
+  // No! Data race. 2 threads writing at the same time.
+  // unguarded_reference = -20;
+
   future.wait();
 
-  if (auto guard = value.with_exclusive()) {
+  {
+    auto guard = value.with_exclusive();
     REQUIRE(*guard == 1000);
   }
 
