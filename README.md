@@ -17,14 +17,19 @@ int main()
 {
   lockables::Guarded<int> value{100};
 
-  // The guard is a pointer like object that owns a lock on value.
-  if (auto guard = value.with_exclusive()) {
+  {
+    // The guard is a pointer like object that owns a lock on value.
+    auto guard = value.with_exclusive();
+
     // Writer lock until guard goes out of scope.
     *guard += 10;
   }
 
   int copy = 0;
-  if (auto guard = value.with_shared()) {
+  {
+    // Reader lock.
+    const auto guard = value.with_shared();
+
     // Reader lock.
     copy = *guard;
   }
@@ -47,12 +52,14 @@ int main()
 {
   lockables::Guarded<std::vector<int>> value{1, 2, 3, 4, 5};
 
-  // The guard allows for multiple operations in the lock scope.
-  if (auto guard = value.with_exclusive()) {
+  // The guard allows for multiple operations in one locked scope.
+  {
+    auto guard = value.with_exclusive();
+
     // sum = value[0] + ... + value[n - 1]
     const int sum = std::reduce(guard->begin(), guard->end());
 
-    // value = value + sum(value)
+    // value[i] = value[i] + sum(value)
     std::transform(guard->begin(), guard->end(), guard->begin(),
                    [sum](int x) { return x + sum; });
 
@@ -96,6 +103,8 @@ int main()
 
 ## Anti-patterns: Do not do this!
 
+Problem: Data race by keeping an unguarded pointer.
+
 Solution: The user must not keep a pointer or reference to the guarded value
 outside the locked scope.
 
@@ -103,15 +112,26 @@ outside the locked scope.
 lockables::Guarded<int> value;
 
 int* unguarded_pointer{};
-if (auto guard = value.with_exclusive()) {
+{
+  auto guard = value.with_exclusive();
+
   // No! User must not keep a pointer or reference outside the guarded
   // scope.
   unguarded_pointer = &(*guard);
 }
 
 // No! Data race if another thread is accessing value.
-// *unguarded_pointer = 1;
+// *unguarded_pointer = -10;
+
+// No! User must not keep a reference to the guarded value.
+int& unguarded_reference =
+    lockables::with_exclusive([](int& x) -> int& { return x; }, value);
+
+// No! Data race if another thread is accessing value.
+// unguarded_reference = -20;
 ```
+
+Problem: Deadlock with recursive guards.
 
 Solution: A calling thread must not own the mutex prior to calling any of the
 locking functions.
@@ -119,7 +139,9 @@ locking functions.
 ```cpp
 lockables::Guarded<int> value;
 
-if (auto guard = value.with_exclusive()) {
+{
+  auto guard = value.with_exclusive();
+
   // No! Deadlock since this thread already owns a lock on value.
   // auto recursive_reader = value.with_shared();
 
@@ -130,6 +152,8 @@ if (auto guard = value.with_exclusive()) {
   // lockables::with_exclusive([](int& x) {}, value);
 }
 ```
+
+Problem: Deadlock with multiple guards.
 
 Solution: To lock multiple values, use the ``with_exclusive`` function which
 avoids deadlock.

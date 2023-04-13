@@ -6,7 +6,8 @@ void BM_Guarded_Shared(benchmark::State& state) {
   lockables::Guarded<T, Mutex> value;
   for (auto _ : state) {
     T copy{};
-    if (auto guard = value.with_shared()) {
+    {
+      const auto guard = value.with_shared();
       copy = *guard;
     }
 
@@ -22,7 +23,8 @@ void BM_Guarded_Exclusive(benchmark::State& state) {
   lockables::Guarded<T, Mutex> value;
   for (auto _ : state) {
     T copy{};
-    if (auto guard = value.with_exclusive()) {
+    {
+      auto guard = value.with_exclusive();
       copy = *guard;
     }
 
@@ -38,8 +40,8 @@ void BM_Guarded_Multiple(benchmark::State& state) {
   lockables::Guarded<T, Mutex> value1;
   lockables::Guarded<T, Mutex> value2;
   for (auto _ : state) {
-    auto copy = lockables::with_exclusive(
-        [](const auto& x, const auto& y) { return x + y; }, value1, value2);
+    T copy = lockables::with_exclusive(
+        [](auto& x, auto& y) -> T { return x + y; }, value1, value2);
 
     benchmark::DoNotOptimize(copy);
   }
@@ -58,15 +60,13 @@ struct BM_Guarded_Fixture : benchmark::Fixture {
   lockables::Guarded<int64_t, Mutex> value{};
 
   void SetUp(const benchmark::State& state) override {
-    if (auto guard = value.with_exclusive()) {
-      *guard = 0;
-    }
+    auto guard = value.with_exclusive();
+    *guard = 0;
   }
 
   void TearDown(const benchmark::State& state) override {
-    if (auto guard = value.with_exclusive()) {
-      assert(*guard == state.iterations() * state.range(0));
-    }
+    auto guard = value.with_shared();
+    assert(*guard == state.iterations() * state.range(0));
   }
 
   void BenchmarkCase(benchmark::State& state) override {
@@ -84,7 +84,8 @@ struct BM_Guarded_Fixture : benchmark::Fixture {
   void RunWriter(benchmark::State& state) {
     for (auto _ : state) {
       int64_t copy{};
-      if (auto guard = value.with_exclusive()) {
+      {
+        auto guard = value.with_exclusive();
         *guard += 1;
         copy = *guard;
       }
@@ -96,7 +97,8 @@ struct BM_Guarded_Fixture : benchmark::Fixture {
   void RunReader(benchmark::State& state) {
     for (auto _ : state) {
       int64_t copy{};
-      if (auto guard = value.with_shared()) {
+      {
+        const auto guard = value.with_shared();
         copy = *guard;
       }
 

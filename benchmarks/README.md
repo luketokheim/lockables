@@ -2,7 +2,7 @@
 
 This project uses the excellent [Benchmark](https://github.com/google/benchmark)
 library from Google. Most of the benchmarks compare ``std::mutex`` and
-``std::shared_metux`` performance over various numbers of reader and writer
+``std::shared_mutex`` performance over various numbers of reader and writer
 threads.
 
 For example, the test case named:

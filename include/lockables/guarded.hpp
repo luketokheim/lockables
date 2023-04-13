@@ -23,14 +23,18 @@
   Usage:
 
   Guarded<int> value{9};
-  if (auto guard = value.with_exclusive()) {
+  {
     // Writer access. The mutex is locked until guard goes out of scope.
+    auto guard = value.with_exclusive();
+
     *guard += 10;
   }
 
   int copy = 0;
-  if (auto guard = value.with_shared()) {
+  {
     // Reader access.
+    auto guard = value.with_shared();
+
     copy = *guard;
     // *guard += 10;  // will not compile!
   }
@@ -80,15 +84,19 @@ class GuardedScope;
   Guarded<std::vector<int>> value{1, 2, 3, 4, 5};
 
   // Reader with shared lock.
-  if (const auto guard = value.with_shared()) {
-    // Deference pointer like object GuardedScope<std::vector<int>>
+  {
+    const auto guard = value.with_shared();
+
+    // Deference pointer like object guard
     if (!guard->empty()) {
       int copy = guard->back();
     }
   }
 
   // Writer with exclusive lock.
-  if (auto guard = value.with_exclusive()) {
+  {
+    auto guard = value.with_exclusive();
+
     guard->push_back(100);
     (*guard).clear();
   }
@@ -130,15 +138,19 @@ class Guarded {
     Usage:
 
     Guarded<int> value;
-    if (const auto guard = value.with_shared()) {
-        const int copy = *guard;
+    {
+      const auto guard = value.with_shared();
+
+      const int copy = *guard;
     }
 
     Guarded<std::vector<int>> list;
-    if (const auto guard = list.with_shared()) {
-        if (!guard->empty()) {
-          const int copy = guard->back();
-        }
+    {
+      const auto guard = list.with_shared();
+
+      if (!guard->empty()) {
+        const int copy = guard->back();
+      }
     }
   */
   [[nodiscard]] shared_scope with_shared() const;
@@ -153,13 +165,18 @@ class Guarded {
     Usage:
 
     Guarded<int> value;
-    if (auto guard = value.with_exclusive()) {
-        *guard = 10;
+    {
+      auto guard = value.with_exclusive();
+
+      *guard = 10;
     }
 
     Guarded<std::vector<int>> list;
-    if (auto guard = list.with_exclusive()) {
-        guard->push_back(100);
+    {
+      auto guard = list.with_exclusive();
+
+      guard->push_back(100);
+      guard->push_back(10);
     }
    */
   [[nodiscard]] exclusive_scope with_exclusive();
@@ -190,16 +207,20 @@ auto Guarded<T, Mutex>::with_exclusive() -> exclusive_scope {
   return exclusive_scope{&value_, mutex_};
 }
 
-/*
+/**
   The with_exclusive function provides access to one or more Guarded<T> objects
   from a user supplied callback.
 
   Basic usage:
 
   Guarded<int> value;
-  with_exclusive([](int& x) {
-    x += 10;
-  }, value);
+
+  with_exclusive(
+      [](int& x) {
+        // Writer with exclusive lock on value.
+        x += 10;
+      },
+      value);
 
   The intent is to support locking of multiple Guarded<T> objects. The
   with_exclusive function relies on std::scoped_lock for deadlock avoidance.
@@ -209,10 +230,13 @@ auto Guarded<T, Mutex>::with_exclusive() -> exclusive_scope {
   Guarded<int> value1{1};
   Guarded<int> value2{2};
 
-  with_exclusive([](int& x, int& y) {
-    x += y;
-    y /= 2;
-  }, value1, value2);
+  with_exclusive(
+      [](int& x, int& y) {
+        // Writer with exclusive lock on value1 and value2.
+        x += y;
+        y /= 2;
+      },
+      value1, value2);
 
   References:
 
@@ -232,10 +256,10 @@ std::invoke_result_t<F, ValueTypes&...> with_exclusive(
   Type trait to select which lock is used in GuardedScope<T>.
 
   Use these std lock types internally for shared access from readers.
-   - std::scoped_lock<std::mutex> lock(...);
-   - std::shared_lock<std::shared_mutex> lock(...);
+   - std::scoped_lock<std::mutex>
+   - std::shared_lock<std::shared_mutex>
 
-  Always use std::scoped_lock<Mutex> for writers.
+  Always use std::scoped_lock<Mutex> for exclusive access from writers.
 
   This means that if the user chooses std::mutex the shared and exclusive locks
   are the same type.
