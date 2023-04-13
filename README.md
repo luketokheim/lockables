@@ -27,7 +27,8 @@ int main()
 
   int copy = 0;
   {
-    auto guard = value.with_shared();
+    // Reader lock.
+    const auto guard = value.with_shared();
 
     // Reader lock.
     copy = *guard;
